@@ -12,6 +12,8 @@ class CatchTests(unittest.TestCase):
     def make_sim(self, **scenario):
         scenario.setdefault("player", {"pos": [20, 5]})
         scenario.setdefault("nodes", [])
+        # Phase 2: tắt bơi để các fixture kiểm tra bắt cá giữ vị trí cố định.
+        scenario.setdefault("random_fish", False)
         return GatherSim(load_contract()["tuning"], scenario, None, IdAllocator())
 
     def test_nearest_tie_at_radius_and_held_button(self):
