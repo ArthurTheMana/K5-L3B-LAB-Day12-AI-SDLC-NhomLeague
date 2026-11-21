@@ -13,6 +13,26 @@ Cách làm việc kỹ thuật là **tự do** (push thẳng, nhánh + PR, pair,
 4. **Gắn tag** `phase-1` … `phase-4` đúng hạn; chạy được tại từng tag.
 5. **Ghi chép tối thiểu:** `docs/verification/phase-n.md`, `docs/clarify.md`, `docs/ai-usage-log.md`, `docs/retro.md`, `docs/members/<handle>.md`.
 
+
+## Chạy từ clone sạch (macOS / Linux, Python 3.10+)
+
+Không cần cài thư viện Python ngoài cho giao diện web và headless. Ví dụ 3 lệnh:
+
+```bash
+git clone https://github.com/ArthurTheMana/K5-L3B-LAB-Day12-AI-SDLC-NhomLeague.git
+cd K5-L3B-LAB-Day12-AI-SDLC-NhomLeague
+python3 -m chonoi.live --mode day
+```
+
+Mở URL localhost được thông báo trên terminal. Điều khiển xem mục **Bắt đầu nhanh** bên dưới.
+
+Kiểm thử: `python3 -m unittest discover -s tests -v`  
+Headless: `python3 -m chonoi.headless --mode day --seed 1 --days 1 --ticks 22200 --out out.jsonl`  
+Benchmark offscreen RGB (không phải FPS trình duyệt): `python3 -m chonoi.bench --seed 42 --duration 30 --out bench.json`  
+Soak: `python3 -m chonoi.soak --seed 7 --days 10 --out soak.json`  
+
+**Giới hạn đã biết:** Benchmark đo software raster 1280×720; để kiểm chứng Canvas UI, cần thực hiện đo trên trình duyệt thật. Chưa coi kết quả benchmark trong archive cũ là bằng chứng đo 30 giây.
+
 ## Bắt đầu nhanh
 
 ```bash
