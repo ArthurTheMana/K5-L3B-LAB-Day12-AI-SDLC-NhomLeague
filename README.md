@@ -1,22 +1,16 @@
-# Day 12 — AI SDLC: Quán Ăn Chợ Nổi
+# Quán Ăn Chợ Nổi — nhóm nhomLeague
 
-> **Làm theo nhóm 4–6 người** · Dùng AI để xây game 2D qua **4 phase** trong **3 giờ**: Út Sen lặn bắt cá, hái rau trên mặt nước rồi tối mở quán phục vụ khách.
-> **Yêu cầu từng phase mở đúng mốc giờ tại lab board:** **[Chợ Nổi Lab](https://claude.ai/artifact/E35v787wSx2wDgPTNhMVDg)** (cần đăng nhập claude.ai; có trợ giảng AI cho từng phase).
+Game quản lý quán ăn 2D mang bản sắc miền Tây. Út Sen lặn bắt cá, hái bông trên sông Chín Khúc vào buổi sáng; tối về nấu và phục vụ khách trên nhà bè của Má Tư; cuối ngày dùng tiền mua nâng cấp ở Shop. Một lượt chuẩn gồm 5 Ngày (kế hoạch D1–D5).
 
-## Bắt buộc (chỉ có thế)
+Bản v1.0.0 · Test Contract **v1.3** (gameplay, tuning, kho và JSONL theo v1.2) · Đề bài và lab board: **[Chợ Nổi Lab](https://claude.ai/artifact/E35v787wSx2wDgPTNhMVDg)**.
 
-Cách làm việc kỹ thuật là **tự do** (push thẳng, nhánh + PR, pair, có hay không CI…). Cái bắt buộc:
+## Yêu cầu môi trường
 
-1. **Một repo chung:** trưởng nhóm **fork** repo này, đặt tên `K5-L3B-LAB-Day12-AI-SDLC-<ten-nhom>`, thêm mọi thành viên làm collaborator (*Settings → Collaborators*, quyền Write) và để repo **public** (giảng viên xem được, không cần mời).
-2. **Cả nhóm cùng commit** bằng tài khoản GitHub của mình, mỗi người **≥ 3 commit có nội dung** (làm cặp thì ghi `Co-authored-by:`).
-3. **Điền [`TEAM.md`](TEAM.md):** danh sách thành viên + thỏa thuận làm việc nhóm; sửa `team_size` trong [`game.contract.json`](game.contract.json). Commit của người không có trong `TEAM.md` không được tính.
-4. **Gắn tag** `phase-1` … `phase-4` đúng hạn; chạy được tại từng tag.
-5. **Ghi chép tối thiểu:** `docs/verification/phase-n.md`, `docs/clarify.md`, `docs/ai-usage-log.md`, `docs/retro.md`, `docs/members/<handle>.md`.
+- **Python 3.10 trở lên** (đã chạy trên 3.12 và 3.13). Chỉ dùng thư viện chuẩn, **không cần `pip install`**.
+- Một trình duyệt hiện đại (Chrome, Firefox, Safari, Edge) để mở bản có giao diện. Khung chơi 1280×720.
+- macOS hoặc Linux. Trên Windows dùng `python` thay cho `python3`.
 
-
-## Chạy từ clone sạch (macOS / Linux, Python 3.10+)
-
-Không cần cài thư viện Python ngoài cho giao diện web và headless. Ví dụ 3 lệnh:
+## Chạy từ clone sạch (3 lệnh)
 
 ```bash
 git clone https://github.com/ArthurTheMana/K5-L3B-LAB-Day12-AI-SDLC-NhomLeague.git
@@ -24,60 +18,86 @@ cd K5-L3B-LAB-Day12-AI-SDLC-NhomLeague
 python3 -m chonoi.live --mode day
 ```
 
-Mở URL localhost được thông báo trên terminal. Điều khiển xem mục **Bắt đầu nhanh** bên dưới.
+Mở địa chỉ `http://127.0.0.1:8000` mà terminal in ra, rồi bấm chọn một chế độ ở menu chính: **Chơi Trọn Vòng Ngày** (5 Ngày), **Bắt Cá & Hái Rau** hoặc **Mở Quán Chợ Nổi**. Đổi cổng bằng `--port 8080`, đổi seed bằng `--seed 7`. Có thể chơi riêng từng buổi bằng `--mode gather` hoặc `--mode quan`. `build_cmd` là `true` vì không có bước build.
 
-Kiểm thử: `python3 -m unittest discover -s tests -v`  
-Headless: `python3 -m chonoi.headless --mode day --seed 1 --days 1 --ticks 22200 --out out.jsonl`  
-Benchmark offscreen RGB (không phải FPS trình duyệt): `python3 -m chonoi.bench --seed 42 --duration 30 --out bench.json`  
-Soak: `python3 -m chonoi.soak --seed 7 --days 10 --out soak.json`  
+## Điều khiển
 
-**Giới hạn đã biết:** Benchmark đo software raster 1280×720; để kiểm chứng Canvas UI, cần thực hiện đo trên trình duyệt thật. Chưa coi kết quả benchmark trong archive cũ là bằng chứng đo 30 giây.
+| Phím | Tác dụng |
+|---|---|
+| **WASD** / **mũi tên** | Bơi (sáng) · đi trong quán (tối) |
+| **E** | Cập bến, hái bông (sáng) · nấu, bưng, phục vụ (tối) |
+| **Space** | Bắt cá (chỉ khi đang ở dưới nước) |
+| **Shift** (giữ) | Bơi nhanh, tốn thể lực (chỉ có ở bản chơi, xem mục Sáng tạo) |
+| **P** / **Esc** | Tạm dừng / tiếp tục. Trong menu tạm dừng, **M** để về menu chính. Nút 🏠 về trang chủ |
+| **1** / **2** | Ở Shop: mua cấp Bình oxy / Áo phao |
+| **Enter** | Ở Shop: đóng Shop, sang Ngày kế |
+| **H** | Bật/tắt **chế độ tương phản cao** (có cả nút trên màn hình) |
+| **R** | Chơi lại từ đầu |
 
-## Bắt đầu nhanh
+**Cảnh báo trên HUD**, có chữ hoặc biểu tượng, đọc được cả ở chế độ tương phản cao:
+- Thủy quái gần (Cá Sấu đang đuổi hoặc cách ≤ 10 m): băng chữ "⚠ THỦY QUÁI ĐẾN GẦN!" và viền màn hình nhấp nháy tím/đỏ, kèm âm báo.
+- Oxy sắp hết (< 20%): thanh oxy nhấp nháy kèm "⚠" và băng chữ "⚠ OXY SẮP HẾT". Khi oxy cạn có chữ "Hết hơi!".
+- Khách sắp giận (kiên nhẫn < 25%): thanh kiên nhẫn ở bàn đổi màu, kèm biểu tượng 😠.
+
+## Cách chơi và cách tính điểm
+
+- **Sáng (Lặn & Hái):** 180 s. Lấy đủ nguyên liệu Má Tư cần cho thực đơn của Ngày, giỏ chứa 12 ô. Lặn thì tốn oxy, oxy cạn thì mất Máu. Cá Sấu Năm Chèo chạm vào làm mất Máu và rơi hàng. Máu về 0 thì ngất, mất cả giỏ. Nguyên liệu hao tươi 0,5/s, dưới 30 là bị ươn.
+- **Tối (Mở Quán):** 180 s, có 2 bếp và 4 bàn. Khách gọi món nấu được bằng kho hiện có. Giá món tính theo độ tươi trung bình của nguyên liệu dùng. Phục vụ khi khách còn ≥ 50% kiên nhẫn thì được boa 20% và +0,2 uy tín. Khách bỏ đi vì hết kiên nhẫn thì −0,5 uy tín.
+- **Shop:** mua Bình oxy (45 s / 60 s) và Áo phao (4 / 5 Máu). Cấp vừa mua có hiệu lực từ Ngày kế.
+- **Điểm** = `earned + 100 × floor(reputation)`. `earned` là tổng thu cả lượt, gồm tiền món và boa. Mua nâng cấp trừ vào `money` nhưng không trừ vào `earned`.
+
+## Lệnh cho kiểm thử và chấm
+
+Các lệnh lấy từ `game.contract.json`:
 
 ```bash
-git clone <fork-của-nhóm> && cd <fork-của-nhóm>
-PYTHONPATH=tests:. python3 -m unittest discover -s tests -v        # smoke test
-python3 -m chonoi.live --mode day                                   # chơi vòng ngày trên trình duyệt
+# Bộ test của nhóm (1 lệnh, ~30 s)
+python3 -m unittest discover -s tests -v
+
+# Headless theo Test Contract (gather | quan | day)
+python3 -m chonoi.headless --mode day --seed 1 --days 1 --ticks 22200 --out out.jsonl
+python3 -m chonoi.headless --mode gather --seed 42 --scenario dock.json --inputs dock-inputs.json \
+        --ticks 1 --out gather.jsonl --inventory-out catch.json
+python3 -m chonoi.headless --mode quan --seed 42 --inventory catch.json --ticks 0 --out quan.jsonl
+
+# Benchmark cảnh lặn 1280×720 (bench_cmd)
+python3 -m chonoi.bench --seed 42 --duration 30 --out bench.json
+
+# Soak 10 Ngày (soak_cmd)
+python3 -m chonoi.soak --seed 7 --days 10 --out soak.json
 ```
 
-Trong bản chơi, nhấn **E** ở menu để bắt đầu, **WASD/mũi tên** để di chuyển, **E** để tương tác, **Space** để bắt cá và **P/Esc** để tạm dừng. Ở Shop nhấn **1** mua oxy, **2** mua máu và **Enter** để đóng Shop; trong menu pause nhấn **M** để về menu. Có thể dùng `--mode gather` hoặc `--mode quan` để thử từng buổi.
+Harness của nhóm (xem [`AGENTS.md`](AGENTS.md)):
+- `python3 tools/verify_phase.py --phase N` chạy test và các smoke, rồi ghi `docs/proof/phase-N/verify.md` kèm commit hash.
+- `python3 tools/check_contract.py` đối chiếu contract với số chuẩn của đề.
+- Bật pre-commit hook một lần cho mỗi clone: `git config core.hooksPath .githooks`.
 
-Game cần chế độ **headless** theo Test Contract (`python3 -m chonoi.headless --mode gather|quan|day …`) để được chạy và chấm tự động. Ví dụ một ngày: `python3 -m chonoi.headless --mode day --seed 1 --days 1 --ticks 22200 --out out.jsonl`. Điểm là `earned + 100 × floor(reputation)`. **Công nghệ không ràng buộc**: khung Python trong `chonoi/` chỉ là gợi ý, chi tiết ở [`docs/STARTER.md`](docs/STARTER.md).
+## Mở rộng
 
-## Tự do sáng tạo
-
-Ngoài phần đề yêu cầu, nhóm được **thêm** nhân vật, loài cá/cây, sinh vật, món, bản đồ, cơ chế, câu chuyện, đồ họa, âm nhạc… với ba điều kiện: **không phá phần cố định** (tắt ở headless), ghi mục **"Sáng tạo của nhóm"** trong README của nhóm, và **làm lõi đúng trước**.
-
-## Lịch 3 giờ
-
-| Mốc | Phase | Hạn tag |
-|---|---|---|
-| 0:00 | Phase 1 (PRD-0) | `phase-1` trước 1:00 |
-| 1:00 | Phase 2 | `phase-2` trước 1:55 |
-| 1:55 | Phase 3 | `phase-3` trước 2:30 |
-| 2:30 | Phase 4 | `phase-4` + Release `v1.0.0` trước 3:00 |
-
-Hết giờ mỗi phase thì gắn tag rồi đi tiếp; chỗ chưa xong ghi trung thực trong bằng chứng.
-
-## Đánh giá (100 điểm)
-
-| Hạng mục | Điểm |
-|---|---|
-| Test tự động ẩn (headless, gồm kiểm tra lại phase trước) | 25 |
-| Làm việc nhóm (một repo chung, chia việc, tích hợp, đổi yêu cầu) | 25 |
-| Kiểm chứng & bằng chứng | 15 |
-| Harness AI (AGENTS.md, skill, nhật ký dùng AI) | 10 |
-| Đánh giá & retro | 10 |
-| Chất lượng sản phẩm (đúng yêu cầu, mở rộng/sáng tạo) | 10 |
-| Demo | 5 |
-
-## Quy định
-
-- Dùng AI thoải mái; **không sao chép repo của nhóm khác**; bằng chứng phải thật.
-- Nhân vật, bối cảnh là bản gốc của lab; asset ngoài chỉ dùng CC0/CC-BY/MIT hoặc tự tạo, ghi nguồn trong `CREDITS.md`. Không commit API key, token, `.env`.
+**Chưa làm mục mở rộng nào có mã trong Test Contract.** `game.contract.json` chưa có khóa `extensions`. Theo đề, nhóm 5 người cần làm ít nhất 1 mục, nên đây là phần còn thiếu, có ghi ở mục Giới hạn đã biết.
 
 ## Sáng tạo của nhóm
 
-- Bản chơi trình duyệt hiển thị Cá Sấu đổi màu, gợn nước và phát âm báo ngắn khi đuổi người chơi; âm thanh cần người chơi nhấn phím trước. Các hiệu ứng chỉ ở giao diện và không thay đổi mô phỏng headless.
-- Kiểm chứng luật và hồi quy: xem `docs/proof/phase-2/crocodile.md`.
+Các phần dưới đây chỉ có ở giao diện trình duyệt (`chonoi/live.py`, `chonoi/web/`) và **tắt ở headless**, nên không đổi tick, sự kiện, tiền, uy tín hay snapshot theo contract.
+
+| Ý tưởng | Mô tả | Bằng chứng lõi vẫn đúng |
+|---|---|---|
+| Cá Sấu "có hồn" | Khi đuổi người chơi, Cá Sấu đổi màu, nước gợn và có âm báo ngắn. Âm thanh cần người chơi nhấn phím trước. | `docs/proof/phase-2/crocodile.md` |
+| Sprite 2D | Út Sen (lặn và trong quán), 3 loài cá, Cá Sấu, khách, nền nhà bè. Có menu chính. | Chỉ ảnh hưởng hình vẽ. Regression 180 test đạt |
+| Ngạt chậm hơn ở bản chơi | Khi oxy cạn dưới nước, bản chơi trừ 1 Máu mỗi 600 tick (10 s) để người mới dễ chơi. Headless và contract vẫn là 60 tick. | `chonoi/live.py` đặt `live_choke_interval_ticks = 600` chỉ cho phiên live. Headless đọc `choke_interval_ticks: 60` từ contract, regression 180 test đạt |
+| Thể lực và bơi nhanh | Giữ Shift để bơi ×1,5, tốn thể lực, có HUD "Stamina". Chỉ bật khi `LiveGame` đặt `_live_stamina_enabled`. | `chonoi/sim/gather.py` (`_move`): headless không bật cờ này. `docs/proof/phase-4/verify.md` |
+
+## Giới hạn đã biết
+
+- **Benchmark** (`chonoi/bench.py`) dựng pixel RGB 1280×720 thật bằng phần mềm, offscreen, rồi đo FPS. Đây **không phải** FPS của Canvas trong trình duyệt, vì bản chơi chạy trên trình duyệt còn Python không mở cửa sổ đồ họa. Kết quả: `docs/proof/phase-4/bench.json`.
+- Chưa có mục mở rộng nào theo Test Contract (xem trên).
+- Bản chơi trên trình duyệt ngạt chậm hơn luật lõi (600 tick thay vì 60 tick mỗi Máu, xem mục Sáng tạo). Muốn chơi đúng luật lõi thì dùng headless.
+- Bản chơi trên trình duyệt chưa được đo FPS bằng công cụ. Đã chơi thử bằng tay.
+
+## Tài liệu nhóm
+
+[`TEAM.md`](TEAM.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`CREDITS.md`](CREDITS.md) · [`docs/contracts/`](docs/contracts/) · [`docs/verification/`](docs/verification/) · [`docs/proof/`](docs/proof/) · [`docs/clarify.md`](docs/clarify.md) · [`docs/ai-usage-log.md`](docs/ai-usage-log.md) · [`docs/retro.md`](docs/retro.md) · [`docs/members/`](docs/members/) · Khung starter: [`docs/STARTER.md`](docs/STARTER.md)
+
+## Quy định của lab
+
+Dùng AI thoải mái, nhưng không sao chép repo của nhóm khác và bằng chứng phải thật. Nhân vật và bối cảnh là bản gốc của lab. Asset ngoài chỉ được dùng CC0/CC-BY/MIT hoặc tự tạo, và phải ghi nguồn trong `CREDITS.md`. Không commit API key, token, `.env`.

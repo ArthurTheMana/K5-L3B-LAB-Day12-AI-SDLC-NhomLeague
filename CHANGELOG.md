@@ -4,6 +4,9 @@
 - Cập nhật `game.contract.json` lên `"contract_version": "1.3"` với `bench_cmd` (`python3 -m chonoi.bench`) và `soak_cmd` (`python3 -m chonoi.soak`).
 - Thêm hệ thống 3 cảnh báo trực quan (Thủy quái đến gần, Oxy `< 20%`, Khách sắp giận `😠`) và chế độ Tương phản cao (nút bấm + phím tắt `H`) trong `chonoi/web/index.html`.
 - Thêm `chonoi/bench.py` (đo FPS cảnh lặn `1280×720`) và `chonoi/soak.py` (chạy soak headless 10 ngày liên tục D1–D10).
+- Benchmark raster RGB phần mềm 1280×720, làm nóng 3 s và đo đúng 30 s (`docs/proof/phase-4/bench.json`).
+- Harness: skill `verify-phase` (`tools/verify_phase.py`), `contract-check` (`tools/check_contract.py`) và pre-commit hook (`.githooks/`).
+- README viết lại cho bản phát hành: yêu cầu môi trường, 3 lệnh từ clone sạch, điều khiển (gồm `H`), cách tính điểm, lệnh test/headless/bench/soak, giới hạn đã biết. Thêm `LICENSE` (MIT), hoàn thiện `CREDITS.md`, sửa link `file:///` trong `docs/verification/phase-1.md` và `phase-4.md`.
 
 ### Phase 3 — tích hợp bàn giao kho v1.2
 - Breaking: `items`, `gather.hold` và `quan.stock` dùng mảng `{id, kind, fresh}`; kho đếm v1.1 không được nhận khi chạy v1.2. Chuyển fixture cũ bằng cách tạo một cá thể cho từng đơn vị, cấp ID duy nhất và `fresh: 100` (hoặc độ tươi fixture cần kiểm thử); cập nhật các khẳng định theo schema mới.
