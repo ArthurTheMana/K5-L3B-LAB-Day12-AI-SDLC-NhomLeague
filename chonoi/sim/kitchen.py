@@ -1,4 +1,6 @@
-"""Lát 4A — Bếp & Bưng món (`kitchen`): đếm giờ nấu, chín món, bắt đầu nấu và lấy món lên tay."""
+"""Lát 4A — Bếp & Bưng món (`kitchen`): đếm giờ nấu, chín món, cháy món, bắt đầu nấu và lấy món lên tay."""
+
+import math
 
 from ..ids import id_key, sort_by_id
 
@@ -35,6 +37,28 @@ def _available_stock(sim) -> dict:
     return avail
 
 
+def _re_reserve_v12(sim, customer, recipe, spoiled_below):
+    """Giữ lại cá thể tươi nhất (chưa ươn, hòa theo id) cho `customer` khi dùng kho cá thể v1.2."""
+    taken = {iid for c in sim.customers if c is not customer for iid in c.get("reserved", [])}
+    picked_ids = []
+    for kind in sorted(recipe.keys()):
+        need = recipe[kind]
+        cands = [
+            it for it in sim.stock
+            if it["kind"] == kind and it["id"] not in taken and it["fresh"] >= spoiled_below
+        ]
+        if len(cands) < need:
+            customer["order_status"] = "unfulfillable"
+            customer["reserved"] = []
+            return
+        cands.sort(key=lambda it: (-it["fresh"], id_key(it["id"])))
+        for it in cands[:need]:
+            picked_ids.append(it["id"])
+            taken.add(it["id"])
+    customer["order_status"] = "reserved"
+    customer["reserved"] = picked_ids
+
+
 def step_stoves(sim, events):
     """Cập nhật bộ đếm bếp đầu bước, chuyển chín (`dish_ready`) và xử lý cháy món nếu bật `burn_s`."""
     for s in sort_by_id(sim.stoves):
@@ -56,6 +80,7 @@ def step_stoves(sim, events):
     burn_s = sim.t.get("burn_s")
     if burn_s is not None:
         burn_ticks = int(round(burn_s * TICK))
+        spoiled_below = float(getattr(sim, "freshness", {}).get("spoiled_below", 30))
         for s in sort_by_id(sim.stoves):
             if s["state"] == "ready" and s["ready_ticks"] > burn_ticks:
                 dish = s["dish"]
@@ -66,14 +91,21 @@ def step_stoves(sim, events):
                 c = next((x for x in sim.customers if x["id"] == dish["order_id"]), None)
                 new_status = "unfulfillable"
                 if c is not None:
-                    recipe = sim.menu[dish["dish_id"]]["recipe"]
-                    avail = _available_stock(sim)
-                    if all(avail.get(k, 0) >= q for k, q in recipe.items()):
-                        c["order_status"] = "reserved"
-                        c["reserved"] = dict(recipe)
+                    if c.get("reservation_id") is not None:
+                        c["order_status"] = "failed"
+                        c["reserved"] = [] if isinstance(sim.stock, list) else {}
                     else:
-                        c["order_status"] = "unfulfillable"
-                        c["reserved"] = {}
+                        recipe = sim.menu[dish["dish_id"]]["recipe"]
+                        if isinstance(sim.stock, list):
+                            _re_reserve_v12(sim, c, recipe, spoiled_below)
+                        else:
+                            avail = _available_stock(sim)
+                            if all(avail.get(k, 0) >= q for k, q in recipe.items()):
+                                c["order_status"] = "reserved"
+                                c["reserved"] = dict(recipe)
+                            else:
+                                c["order_status"] = "unfulfillable"
+                                c["reserved"] = {}
                     new_status = c["order_status"]
                 events.append(("dish_burnt", {
                     "stove_id": s["id"],
@@ -88,22 +120,35 @@ def interact_stove(sim, stove, events):
     if stove["state"] == "idle":
         waiting_res = [
             c for c in sim.customers
-            if c["state"] == "waiting" and c["order_status"] == "reserved"
+            if c["state"] in ("waiting", "waiting_dish") and c["order_status"] == "reserved"
         ]
         if not waiting_res:
             return
         waiting_res.sort(key=lambda c: (c["order_tick"], id_key(c["table_id"])))
         c = waiting_res[0]
-        items_used = []
-        for k in sorted(c["reserved"].keys()):
-            qty = c["reserved"][k]
-            sim.stock[k] = sim.stock.get(k, 0) - qty
-            if sim.stock[k] <= 0:
-                sim.stock.pop(k, None)
-            items_used.extend([k] * qty)
-        c["reserved"] = {}
+        listed_price = int(sim.menu[c["dish_id"]]["price"])
+        if isinstance(sim.stock, list):
+            res_ids = set(c["reserved"])
+            used_items = [it for it in sim.stock if it["id"] in res_ids]
+            sim.stock = [it for it in sim.stock if it["id"] not in res_ids]
+            items_used = sorted(used_items, key=lambda it: (it["kind"], id_key(it["id"])))
+            avg_fresh = sum(it["fresh"] for it in items_used) / len(items_used) if items_used else 100.0
+            base_price = int(math.floor(listed_price * avg_fresh / 100.0))
+            if c.get("reservation_id") is not None:
+                mult = float(getattr(sim, "reservation_price_multiplier", 1.5))
+                base_price = int(math.floor(base_price * mult))
+            c["reserved"] = []
+        else:
+            items_used = []
+            for k in sorted(c["reserved"].keys()):
+                qty = c["reserved"][k]
+                sim.stock[k] = sim.stock.get(k, 0) - qty
+                if sim.stock[k] <= 0:
+                    sim.stock.pop(k, None)
+                items_used.extend([k] * qty)
+            c["reserved"] = {}
+            base_price = listed_price
         c["order_status"] = "assigned"
-        base_price = int(sim.menu[c["dish_id"]]["price"])
         stove["state"] = "cooking"
         stove["dish"] = {"order_id": c["id"], "dish_id": c["dish_id"], "base_price": base_price}
         stove["cook_ticks_left"] = int(round(sim.menu[c["dish_id"]]["cook_s"] * TICK))
