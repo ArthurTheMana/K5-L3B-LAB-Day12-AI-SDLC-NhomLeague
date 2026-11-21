@@ -1,10 +1,10 @@
 {
   "contract_version": "1.1",
-  "team": "ten-nhom",
+  "team": "nhomLeague",
   "team_size": 4,
   "build_cmd": "true",
-  "run_cmd": "python3 -m chonoi.live --mode gather",
-  "headless_cmd": "python3 -m chonoi.headless",
+  "run_cmd": "python -m chonoi.live --mode gather",
+  "headless_cmd": "python -m chonoi.headless",
   "tuning": {
     "tick_hz": 60,
     "gather": {
