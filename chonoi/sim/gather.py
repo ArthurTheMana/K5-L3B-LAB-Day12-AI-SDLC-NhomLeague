@@ -52,7 +52,15 @@ class GatherSim:
         self.zero_oxy_ticks = p.get("zero_oxy_ticks", 0)
         self.invuln_ticks = p.get("invuln_ticks", 0)
         self.catch_cd_ticks = p.get("catch_cd_ticks", 0)
-        self.hold = list(scenario.get("hold", []))  # thứ tự nhặt, cuối mảng là mới nhất
+        self.freshness = tuning.get("freshness")
+        self.hold = []
+        for item in scenario.get("hold", []):
+            if self.freshness is not None:
+                copied = dict(item)
+                self.ids.reserve(copied["id"])
+                self.hold.append(copied)
+            else:
+                self.hold.append(item)
         self.time_left_ticks = scenario.get("time_left_ticks", int(round(t["duration_s"] * TICK)))
         self.phase_tick = 0  # Chỉ tăng khi mô phỏng buổi sáng thực sự chạy một bước.
         # nút và đàn cá: scenario THAY THẾ danh sách mặc định; random_fish=false tắt cá mặc định
@@ -80,6 +88,45 @@ class GatherSim:
         self.done = False
         self.reason = None
 
+    def _create_item(self, kind):
+        """Create one ingredient with a unique ID and initial freshness."""
+        return {
+            "id": self.ids.new("I"),
+            "kind": kind,
+            "fresh": self.freshness["initial"],
+        }
+
+
+    def _decay_freshness(self, events):
+        """Decay existing items and emit spoiled events once."""
+        if self.freshness is None:
+            return
+
+        # 240 units = 1 freshness point.
+        decay_units = round(
+            self.freshness["gather_decay_per_s"] * 240 / TICK
+        )
+        threshold = round(self.freshness["spoiled_below"] * 240)
+
+        spoiled = []
+
+        for item in self.hold:
+            old_units = round(item["fresh"] * 240)
+            new_units = max(0, old_units - decay_units)
+
+            item["fresh"] = new_units / 240
+
+            if old_units >= threshold and new_units < threshold:
+                spoiled.append(item)
+
+        for item in sort_by_id(spoiled):
+            events.append(("spoiled", {
+                "item_id": item["id"],
+                "kind": item["kind"],
+                "location": "hold",
+            }))
+
+
     def _create_initial_fish(self):
         """Chọn điểm hình học khác nhau, rồi chọn loài phù hợp theo seed."""
         rng = self.rng.get("fish_initial")
@@ -95,8 +142,20 @@ class GatherSim:
                 for pos in selected]
 
     # --- giao diện cho runner -------------------------------------------------
-    def inventory_items(self) -> dict:
+
+    def inventory_items(self):
+        if self.freshness is not None:
+            return [
+                {
+                    "id": item["id"],
+                    "kind": item["kind"],
+                    "fresh": item["fresh"],
+                }
+                for item in self.hold
+            ]
+
         return hold_to_items(self.hold)
+
 
     def snapshot(self) -> dict:
         return {
@@ -105,7 +164,8 @@ class GatherSim:
                        "hp": self.hp, "hp_max": self.t["hp_max"], "zero_oxy_ticks": self.zero_oxy_ticks,
                        "invuln_ticks": self.invuln_ticks, "catch_cd_ticks": self.catch_cd_ticks,
                        "at_surface": self._at_surface()},
-            "hold": self.hold, "hold_count": len(self.hold),
+            "hold": [dict(item) for item in self.hold] if self.freshness is not None else list(self.hold),
+            "hold_count": len(self.hold),
             "hold_capacity": self.t["hold_capacity"],
             "nodes": [{"id": n["id"], "pos": n["pos"], "kind": n["kind"],
                        "ready": n["regrow_ticks"] == 0, "regrow_ticks": n["regrow_ticks"]}
@@ -123,6 +183,7 @@ class GatherSim:
         self.time_left_ticks = max(0, self.time_left_ticks - 1)
         self.invuln_ticks = max(0, self.invuln_ticks - 1)
         self.catch_cd_ticks = max(0, self.catch_cd_ticks - 1)
+        self._decay_freshness(events)
         for n in sort_by_id(self.nodes):
             if n["regrow_ticks"] > 0:
                 n["regrow_ticks"] -= 1
@@ -199,7 +260,13 @@ class GatherSim:
                     amount = self.t["node_yield"]
                     free = self.t["hold_capacity"] - len(self.hold)
                     if free >= amount:
-                        self.hold.extend([node["kind"]] * amount)
+                        if self.freshness is not None:
+                            self.hold.extend(
+                                self._create_item(node["kind"])
+                                for _ in range(amount)
+                            )
+                        else:
+                            self.hold.extend([node["kind"]] * amount)
                         node["regrow_ticks"] = int(round(self.t["regrow_s"] * TICK))
                         events.append(("gather", {"node_id": node["id"],
                                                   "kind": node["kind"], "amount": amount}))
@@ -217,7 +284,13 @@ class GatherSim:
                     amount = self.t["fish_yield"][fish["kind"]]
                     free = self.t["hold_capacity"] - len(self.hold)
                     if free >= amount:
-                        self.hold.extend([fish["kind"]] * amount)
+                        if self.freshness is not None:
+                            self.hold.extend(
+                                self._create_item(fish["kind"])
+                                for _ in range(amount)
+                            )
+                        else:
+                            self.hold.extend([fish["kind"]] * amount)
                         self.fish.remove(fish)
                         self.catch_cd_ticks = int(round(self.t["catch_cooldown_s"] * TICK))
                         events.append(("fish_caught", {"fish_id": fish["id"],
