@@ -1,5 +1,10 @@
 # Changelog
 
+### Phase 4 — Phát hành v1.0.0 (Contract v1.3)
+- Cập nhật `game.contract.json` lên `"contract_version": "1.3"` với `bench_cmd` (`python3 -m chonoi.bench`) và `soak_cmd` (`python3 -m chonoi.soak`).
+- Thêm hệ thống 3 cảnh báo trực quan (Thủy quái đến gần, Oxy `< 20%`, Khách sắp giận `😠`) và chế độ Tương phản cao (nút bấm + phím tắt `H`) trong `chonoi/web/index.html`.
+- Thêm `chonoi/bench.py` (đo FPS cảnh lặn `1280×720`) và `chonoi/soak.py` (chạy soak headless 10 ngày liên tục D1–D10).
+
 ### Phase 3 — tích hợp bàn giao kho v1.2
 - Breaking: `items`, `gather.hold` và `quan.stock` dùng mảng `{id, kind, fresh}`; kho đếm v1.1 không được nhận khi chạy v1.2. Chuyển fixture cũ bằng cách tạo một cá thể cho từng đơn vị, cấp ID duy nhất và `fresh: 100` (hoặc độ tươi fixture cần kiểm thử); cập nhật các khẳng định theo schema mới.
 - Bàn giao cùng tick, giữ ID và độ tươi qua file và Ngày; `fresh` trong JSONL không bị làm tròn để tránh đổi nhánh tại ngưỡng. HUD đếm hàng ươn và không tính hàng ươn vào kho khả dụng.

@@ -55,7 +55,7 @@ def read_inventory(path: str, kinds=KINDS_P1, contract_version="1.1"):
         raise BadInput(f"không đọc được file kho {path}: {e}")
     if not isinstance(data, dict) or set(data.keys()) != {"items"}:
         raise BadInput("file kho chỉ được có khóa gốc 'items'")
-    if contract_version == "1.2":
+    if str(contract_version) >= "1.2":
         return validate_individuals(data["items"], kinds)
     return validate_items(data["items"], kinds)
 
