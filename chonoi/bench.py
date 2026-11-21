@@ -22,38 +22,52 @@ HEIGHT = 720
 TICK_DT = 1.0 / 60.0
 
 
-def _render_frame(snap: dict, width: int = WIDTH, height: int = HEIGHT) -> int:
-    """Chiếu tọa độ 2D và dựng danh sách draw-call cho cảnh lặn 1280x720."""
+def _rectangle(buffer: bytearray, width: int, height: int, x: int, y: int,
+               w: int, h: int, color: bytes) -> None:
+    """Rasterize one RGB rectangle into the actual offscreen pixel buffer."""
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(width, x + w), min(height, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return
+    scanline = color * (x1 - x0)
+    stride = width * 3
+    for row in range(y0, y1):
+        start = row * stride + x0 * 3
+        buffer[start:start + len(scanline)] = scanline
+
+
+def _render_frame(snap: dict, width: int = WIDTH, height: int = HEIGHT) -> bytearray:
+    """Render real RGB pixels at 1280x720 in software (offscreen).
+
+    This measures raster work rather than merely counting draw calls. It does
+    NOT measure browser Canvas/GPU performance; that requires a browser run.
+    """
+    # Every pixel is written into a fresh 1280x720 RGB buffer.
+    pixels = bytearray(bytes((14, 64, 94)) * (width * height))
     sx = width / 104.0
     sy = (height - 120) / 36.0
-    draw_calls = 0
-
-    # Nút hái
+    _rectangle(pixels, width, height, 0, 0, width, 35, b"\x80\xce\xe8")
     for n in snap.get("nodes", []):
-        _px = int(n["pos"][0] * sx)
-        _py = int(n["pos"][1] * sy)
-        draw_calls += 1
-
-    # Đàn cá bơi
+        _rectangle(pixels, width, height, int(n["pos"][0] * sx),
+                   int(n["pos"][1] * sy) + 35, 12, 9, b"\x55\xd0\x78")
     for f in snap.get("fish", []):
-        _px = int(f["pos"][0] * sx)
-        _py = int(f["pos"][1] * sy)
-        draw_calls += 1
-
-    # Thủy quái (Cá Sấu Năm Chèo)
+        _rectangle(pixels, width, height, int(f["pos"][0] * sx),
+                   int(f["pos"][1] * sy) + 35, 15, 8, b"\xff\xc8\x64")
     for m in snap.get("monsters", []):
-        _px = int(m["pos"][0] * sx)
-        _py = int(m["pos"][1] * sy)
-        draw_calls += 1
-
-    # Người chơi + HUD độ tươi / oxy / máu
-    p = snap.get("player", {})
-    _px = int(p.get("pos", [0, 0])[0] * sx)
-    _py = int(p.get("pos", [0, 0])[1] * sy)
-    _oxy_ratio = p.get("oxygen_ticks", 0) / max(1, p.get("oxygen_max_ticks", 1800))
-    _hold_count = len(snap.get("hold", []))
-    draw_calls += 3 + _hold_count
-    return draw_calls
+        _rectangle(pixels, width, height, int(m["pos"][0] * sx),
+                   int(m["pos"][1] * sy) + 35, 35, 17, b"\xd4\x43\x42")
+    player = snap.get("player", {})
+    pos = player.get("pos", (0, 0))
+    _rectangle(pixels, width, height, int(pos[0] * sx), int(pos[1] * sy) + 35,
+               12, 24, b"\xff\xf3\xd7")
+    oxygen = player.get("oxygen_ticks", 0) / max(1, player.get("oxygen_max_ticks", 1))
+    _rectangle(pixels, width, height, 16, height - 54, 210, 12, b"\x32\x40\x52")
+    _rectangle(pixels, width, height, 16, height - 54,
+               int(210 * max(0, min(1, oxygen))), 12, b"\x6c\xde\xff")
+    hold_count = len(snap.get("hold", []))
+    _rectangle(pixels, width, height, 16, height - 32,
+               min(210, hold_count * 16), 10, b"\xff\xdb\x83")
+    return pixels
 
 
 def run_bench(seed: int, duration_s: float, out_path: str, warmup_s: float = 3.0) -> dict:
@@ -61,6 +75,10 @@ def run_bench(seed: int, duration_s: float, out_path: str, warmup_s: float = 3.0
     tuning = load_contract()["tuning"]
     sim = GatherSim(tuning, {}, Streams(seed), IdAllocator(), day=1)
     idle_inp = InputState((0.0, 0.0), set(), set())
+
+    # Load time = startup to FIRST rendered frame (not end of warmup).
+    _render_frame(sim.snapshot())
+    load_ms = round((time.perf_counter() - t_boot) * 1000.0, 3)
 
     # Làm nóng
     acc = 0.0
@@ -78,8 +96,6 @@ def run_bench(seed: int, duration_s: float, out_path: str, warmup_s: float = 3.0
 
     # Khung hình đầu tiên của cảnh đo
     t_measure_start = time.perf_counter()
-    load_ms = round((t_measure_start - t_boot) * 1000.0, 3)
-
     frame_times = []
     acc = 0.0
     last = t_measure_start
@@ -96,7 +112,7 @@ def run_bench(seed: int, duration_s: float, out_path: str, warmup_s: float = 3.0
             sim.step(idle_inp)
             acc -= TICK_DT
         _render_frame(sim.snapshot())
-        # Giữ nhịp ổn định để không ăn 100% CPU vô ích nhưng vẫn vượt mốc >= 60 FPS
+        # Throttle CPU; do not manufacture an FPS number: timings use real wall time.
         time.sleep(0.004)
         f_end = time.perf_counter()
         frame_times.append(max(1e-6, f_end - f_start))
