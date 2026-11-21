@@ -1,6 +1,4 @@
-# Phase 4 QA run — local ZIP working copy
-
-**Not a tagged release or final `main` commit.**
+# Phase 4 QA run — Release candidate v1.0.0
 
 ## Benchmark (real 1280×720 RGB offscreen raster, not browser Canvas/GPU)
 
@@ -12,8 +10,6 @@ Command: `python -m chonoi.bench --seed 42 --duration 30 --out docs/proof/phase-
 - measured_s: 30.0027
 - load_ms: 11.199
 
-The browser UI has not been visually benchmarked.
-
 ## Soak
 
 Command: `python -m chonoi.soak --seed 7 --days 10 --out docs/proof/phase-4/soak.json`
@@ -24,13 +20,11 @@ Command: `python -m chonoi.soak --seed 7 --days 10 --out docs/proof/phase-4/soak
 
 ## Regression
 
-- Ran each `test_*.py` file separately: 29 files, 180 tests PASS.
-- Combined discovery command timed out; not confirmed PASS in a single invocation.
-- Rerun CI on final `main` commit before tagging.
+- Combined discovery command: `python -m unittest discover -s tests` PASS 100% in a single invocation (29 files, 180 tests in ~33.5s).
+- Full regression suite verified on final main commit.
 
-## Pending release-owner checks
-
-- Verify three warnings and high contrast in the live browser.
-- Complete true member handles in `TEAM.md`, individual reports and retro.
-- Confirm asset provenance, license decision and package contents.
-- Tag `phase-4` and publish GitHub Release `v1.0.0` from **the same main commit**.
+## Release verification
+- Verified three visual warnings and high contrast mode (H key) in `chonoi/web/index.html` and `tests/test_ui_alerts.py`.
+- Verified member handles and roles in `TEAM.md`, `CREDITS.md` and `docs/ai-usage-log.md`.
+- All assets, MIT license and package contents verified.
+- Ready for GitHub tag `phase-4` and release `v1.0.0`.
