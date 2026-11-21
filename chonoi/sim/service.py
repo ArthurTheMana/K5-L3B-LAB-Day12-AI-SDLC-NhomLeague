@@ -1,5 +1,10 @@
-"""
+"""Module Service (Người B): Quản lý bàn ăn, phục vụ món, tiến trình ăn, thanh toán & uy tín.
+
 Được thiết kế độc lập, có try-catch đầy đủ để phòng thủ lỗi khi chạy headless và hiển thị Web UI (live).
+
+Quy ước tích hợp với QuanSim:
+  1. Trong QuanSim.step(): gọi `events.extend(update_service(self))` mỗi tick.
+  2. Khi phím E (interact) bấm gần bàn: gọi `events.extend(handle_table_interact(self, table))`.
 """
 
 import logging
