@@ -92,11 +92,15 @@ def handle_table_interact(sim: Any, table: Dict[str, Any]) -> List[Tuple[str, Di
         # Nếu còn >= 50% kiên nhẫn lúc giao: boa = floor(giá * 0.2)
         patience_left = customer.get("patience_ticks_left", customer.get("patience_ticks", 0))
         pat_s = float(sim.t.get("patience_s", 60.0)) if hasattr(sim, "t") else 60.0
-        patience_total = max(1, customer.get("patience_ticks", int(round(pat_s * TICK))))
+        patience_total = max(1, customer.get("patience_ticks") or customer.get("patience_max_ticks") or int(round(pat_s * TICK)))
         patience_ratio = patience_left / patience_total
         tip = 0
         dish_info = sim.menu.get(hand_dish, {}) if hasattr(sim, "menu") else {}
-        base_price = customer.get("base_price") or int(dish_info.get("price", 0))
+        base_price = (
+            customer.get("base_price")
+            or (hand.get("base_price") if isinstance(hand, dict) else 0)
+            or int(dish_info.get("price", 0))
+        )
         customer["base_price"] = base_price
         tip_min_ratio = float(sim.t.get("tip_min_patience_ratio", 0.5)) if hasattr(sim, "t") else 0.5
         tip_rate = float(sim.t.get("tip_rate", 0.2)) if hasattr(sim, "t") else 0.2
@@ -105,10 +109,12 @@ def handle_table_interact(sim: Any, table: Dict[str, Any]) -> List[Tuple[str, Di
         customer["tip"] = tip
 
         # Bắn sự kiện served
+        order_id = customer.get("id") or customer.get("order_id", "")
+        customer_id = customer.get("customer_id") or order_id
         event_data = {
-            "order_id": customer.get("id"),
+            "order_id": order_id,
             "table_id": table_id,
-            "customer_id": customer.get("id", ""),
+            "customer_id": customer_id,
             "dish_id": hand_dish,
             "dish": hand_dish,
             "tip": tip,

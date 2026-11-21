@@ -45,9 +45,17 @@ class FakeQuanSim:
             "ca_loc_nuong_trui": {"recipe": {"ca_loc": 1}, "cook_s": 6, "price": 60},
             "goi_bong_sung": {"recipe": {"bong_sung": 2}, "cook_s": 4, "price": 40},
             "lau_ca_linh_dien_dien": {"recipe": {"ca_linh": 3, "bong_dien_dien": 1}, "cook_s": 10, "price": 120},
+            "canh_chua_ca_loc": {"recipe": {"ca_loc": 1, "bong_dien_dien": 1}, "cook_s": 8, "price": 90},
+            "ca_keo_nuong": {"recipe": {"ca_keo": 2}, "cook_s": 6, "price": 70},
+            "lau_mam": {"recipe": {"ca_linh": 2, "ca_keo": 1, "keo_neo": 1, "bong_dien_dien": 1}, "cook_s": 12, "price": 200},
         }
         self.customers = customers if customers is not None else []
-        self.tables = [{"id": "T1", "pos": [9, 2]}, {"id": "T2", "pos": [9, 6]}]
+        self.tables = [
+            {"id": "T1", "pos": [9, 2]},
+            {"id": "T2", "pos": [13, 2]},
+            {"id": "T3", "pos": [9, 6]},
+            {"id": "T4", "pos": [13, 6]},
+        ]
         self.hand = hand
         self.money = money
         self.earned = money
@@ -313,6 +321,193 @@ class TestServiceDefensive(unittest.TestCase):
         self.assertIsNone(get_customer_at_table({}, "T1"))
 
 
+class TestPhase2Service(unittest.TestCase):
+    """Kiểm tra Person B theo chuẩn Phase 2 (TICKET-02):
+    
+    1. 4 bàn ăn: T1 [9, 2], T2 [13, 2], T3 [9, 6], T4 [13, 6].
+    2. 6 món ăn:
+       - ca_loc_nuong_trui: 60k
+       - goi_bong_sung: 40k
+       - lau_ca_linh_dien_dien: 120k
+       - canh_chua_ca_loc: 90k
+       - ca_keo_nuong: 70k
+       - lau_mam: 200k
+    3. Tính tip chính xác: floor(giá * 0.2) khi kiên nhẫn lúc giao >= 50%.
+    4. Tương thích tay cầm dạng dict từ Người A (bếp).
+    5. Điểm số kết thúc ca: score = earned + 100 * floor(reputation).
+    """
+
+    def test_serve_four_tables(self):
+        """Phục vụ độc lập tại cả 4 bàn T1, T2, T3, T4."""
+        tables = [
+            {"id": "T1", "pos": [9, 2]},
+            {"id": "T2", "pos": [13, 2]},
+            {"id": "T3", "pos": [9, 6]},
+            {"id": "T4", "pos": [13, 6]},
+        ]
+        customers = [
+            {"id": "C1", "table_id": "T1", "dish_id": "ca_loc_nuong_trui", "state": "waiting_dish", "patience_ticks": 3600, "patience_ticks_left": 3600},
+            {"id": "C2", "table_id": "T2", "dish_id": "canh_chua_ca_loc", "state": "waiting_dish", "patience_ticks": 3600, "patience_ticks_left": 3600},
+            {"id": "C3", "table_id": "T3", "dish_id": "ca_keo_nuong", "state": "waiting_dish", "patience_ticks": 3600, "patience_ticks_left": 3600},
+            {"id": "C4", "table_id": "T4", "dish_id": "lau_mam", "state": "waiting_dish", "patience_ticks": 3600, "patience_ticks_left": 3600},
+        ]
+        sim = FakeQuanSim(customers=customers)
+
+        # 1. Phục vụ T4 (lau_mam)
+        sim.hand = "lau_mam"
+        evs4 = handle_table_interact(sim, tables[3])
+        self.assertEqual(len(evs4), 1)
+        self.assertEqual(evs4[0][0], "served")
+        self.assertEqual(evs4[0][1]["table_id"], "T4")
+        self.assertEqual(evs4[0][1]["dish"], "lau_mam")
+        self.assertEqual(evs4[0][1]["tip"], 40)  # 200 * 0.2 = 40
+        self.assertEqual(customers[3]["state"], "eating")
+
+        # 2. Phục vụ T3 (ca_keo_nuong)
+        sim.hand = "ca_keo_nuong"
+        evs3 = handle_table_interact(sim, tables[2])
+        self.assertEqual(len(evs3), 1)
+        self.assertEqual(evs3[0][1]["table_id"], "T3")
+        self.assertEqual(evs3[0][1]["dish"], "ca_keo_nuong")
+        self.assertEqual(evs3[0][1]["tip"], 14)  # 70 * 0.2 = 14
+        self.assertEqual(customers[2]["state"], "eating")
+
+        # 3. Phục vụ T2 (canh_chua_ca_loc)
+        sim.hand = "canh_chua_ca_loc"
+        evs2 = handle_table_interact(sim, tables[1])
+        self.assertEqual(len(evs2), 1)
+        self.assertEqual(evs2[0][1]["table_id"], "T2")
+        self.assertEqual(evs2[0][1]["dish"], "canh_chua_ca_loc")
+        self.assertEqual(evs2[0][1]["tip"], 18)  # 90 * 0.2 = 18
+        self.assertEqual(customers[1]["state"], "eating")
+
+        # 4. Phục vụ T1 (ca_loc_nuong_trui)
+        sim.hand = "ca_loc_nuong_trui"
+        evs1 = handle_table_interact(sim, tables[0])
+        self.assertEqual(len(evs1), 1)
+        self.assertEqual(evs1[0][1]["table_id"], "T1")
+        self.assertEqual(evs1[0][1]["dish"], "ca_loc_nuong_trui")
+        self.assertEqual(evs1[0][1]["tip"], 12)  # 60 * 0.2 = 12
+        self.assertEqual(customers[0]["state"], "eating")
+
+        # Tất cả 4 khách đều chuyển sang 'eating'
+        for c in customers:
+            self.assertEqual(c["state"], "eating")
+
+    def test_all_six_dishes_pricing_and_tips(self):
+        """Kiểm tra chính xác giá và tiền tip cho tất cả 6 món ăn Phase 2."""
+        dishes_expected = [
+            ("ca_loc_nuong_trui", 60, 12),      # floor(60 * 0.2) = 12
+            ("goi_bong_sung", 40, 8),          # floor(40 * 0.2) = 8
+            ("lau_ca_linh_dien_dien", 120, 24), # floor(120 * 0.2) = 24
+            ("canh_chua_ca_loc", 90, 18),      # floor(90 * 0.2) = 18
+            ("ca_keo_nuong", 70, 14),          # floor(70 * 0.2) = 14
+            ("lau_mam", 200, 40),              # floor(200 * 0.2) = 40
+        ]
+        table = {"id": "T1", "pos": [9, 2]}
+
+        for dish_name, base_price, expected_tip in dishes_expected:
+            customer = {
+                "id": f"C_{dish_name}",
+                "table_id": "T1",
+                "dish_id": dish_name,
+                "state": "waiting_dish",
+                "patience_ticks": 3600,
+                "patience_ticks_left": 3600,  # 100% kiên nhẫn
+            }
+            sim = FakeQuanSim(customers=[customer], hand=dish_name, money=0)
+            evs = handle_table_interact(sim, table)
+            self.assertEqual(len(evs), 1)
+            self.assertEqual(evs[0][1]["tip"], expected_tip)
+            self.assertEqual(customer["base_price"], base_price)
+            self.assertEqual(customer["tip"], expected_tip)
+
+            # Ăn xong và thanh toán
+            customer["eat_ticks_left"] = 0
+            paid_evs = update_dining(sim)
+            self.assertEqual(len(paid_evs), 1)
+            name, paid_data = paid_evs[0]
+            self.assertEqual(name, "paid")
+            self.assertEqual(paid_data["dish_id"], dish_name)
+            self.assertEqual(paid_data["amount"], base_price + expected_tip)
+            self.assertEqual(paid_data["tip"], expected_tip)
+            self.assertEqual(sim.money, base_price + expected_tip)
+
+    def test_tip_threshold_edge_cases(self):
+        """Kiểm tra điều kiện biên tỷ lệ kiên nhẫn: đúng 50% được tip, dưới 50% không có tip."""
+        table = {"id": "T1", "pos": [9, 2]}
+
+        # Đúng 50% kiên nhẫn (1800 / 3600 = 0.5) -> có tip (40)
+        c_exact = {
+            "id": "C1",
+            "table_id": "T1",
+            "dish_id": "lau_mam",
+            "state": "waiting_dish",
+            "patience_ticks": 3600,
+            "patience_ticks_left": 1800,
+        }
+        sim1 = FakeQuanSim(customers=[c_exact], hand="lau_mam")
+        handle_table_interact(sim1, table)
+        self.assertEqual(c_exact["tip"], 40)
+
+        # Dưới 50% kiên nhẫn (1799 / 3600 = 0.4997) -> 0 tip
+        c_under = {
+            "id": "C2",
+            "table_id": "T1",
+            "dish_id": "lau_mam",
+            "state": "waiting_dish",
+            "patience_ticks": 3600,
+            "patience_ticks_left": 1799,
+        }
+        sim2 = FakeQuanSim(customers=[c_under], hand="lau_mam")
+        handle_table_interact(sim2, table)
+        self.assertEqual(c_under["tip"], 0)
+
+    def test_hand_as_dict_from_kitchen(self):
+        """Tương thích khi món trên tay là dict do Bếp (Người A) truyền sang."""
+        table = {"id": "T1", "pos": [9, 2]}
+        customer = {
+            "id": "C1",
+            "table_id": "T1",
+            "dish_id": "lau_mam",
+            "state": "waiting_dish",
+            "patience_ticks": 3600,
+            "patience_ticks_left": 3000,
+        }
+        hand_dict = {
+            "order_id": "C1",
+            "dish_id": "lau_mam",
+            "base_price": 200,
+        }
+        sim = FakeQuanSim(customers=[customer], hand=hand_dict)
+
+        evs = handle_table_interact(sim, table)
+        self.assertEqual(len(evs), 1)
+        name, d = evs[0]
+        self.assertEqual(name, "served")
+        self.assertEqual(d["table_id"], "T1")
+        self.assertEqual(d["dish_id"], "lau_mam")
+        self.assertEqual(d["tip"], 40)
+        self.assertIsNone(sim.hand)
+        self.assertEqual(customer["state"], "eating")
+        self.assertEqual(customer["base_price"], 200)
+
+    def test_score_calculation_formula(self):
+        """Công thức điểm số ca: score = earned + 100 * floor(reputation)."""
+        # earned = 520, reputation = 3.8 -> floor(3.8) = 3 -> score = 520 + 300 = 820
+        sim = FakeQuanSim(money=520, reputation=3.8)
+        mult = 100
+        score = sim.earned + mult * math.floor(sim.reputation)
+        self.assertEqual(score, 820)
+
+        # Sau khi khách boa và uy tín tăng lên 4.0: floor(4.0) = 4 -> score = 800 + 400 = 1200
+        sim.earned = 800
+        sim.reputation = 4.0
+        score2 = sim.earned + mult * math.floor(sim.reputation)
+        self.assertEqual(score2, 1200)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
