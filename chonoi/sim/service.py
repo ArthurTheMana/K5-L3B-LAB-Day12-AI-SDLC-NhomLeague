@@ -1,3 +1,4 @@
+
 """Module Service (Người B): Quản lý bàn ăn, phục vụ món, tiến trình ăn, thanh toán & uy tín.
 
 Được thiết kế độc lập, có try-catch đầy đủ để phòng thủ lỗi khi chạy headless và hiển thị Web UI (live).
