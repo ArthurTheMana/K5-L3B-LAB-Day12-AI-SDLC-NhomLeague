@@ -19,6 +19,7 @@ FISH_KINDS = ("ca_linh", "ca_loc", "ca_keo")
 QUAN_PLAYER_KEYS = {"pos", "vel"}
 QUAN_KEYS = {"player", "stock", "hand", "stoves", "tables", "customers", "random_customers",
              "reputation", "time_left_ticks"}
+DAY_KEYS = {"day", "max_days", "money", "earned", "reputation", "upgrades", "stock", "gather", "quan", "shop", "time_left_ticks", "intro_ticks", "daily_menu"}
 
 
 def _check_ids(name, arr):
@@ -41,25 +42,26 @@ def load_scenario(path, mode: str, tuning: dict) -> dict:
             data = json.load(f)
     except (OSError, ValueError) as e:
         raise BadInput(f"không đọc được scenario {path}: {e}")
-    if not isinstance(data, dict) or not set(data) <= {"gather", "quan"}:
-        raise BadInput("scenario chỉ được có khối 'gather' hoặc 'quan'")
+    if not isinstance(data, dict) or not set(data) <= {"gather", "quan", "day"}:
+        raise BadInput("scenario chỉ được có khối 'gather', 'quan' hoặc 'day'")
     if set(data) - {mode}:
         raise BadInput(f"khối sai mode: chạy --mode {mode} chỉ nhận khối '{mode}'")
     block = data.get(mode, {})
     if not isinstance(block, dict):
         raise BadInput(f"khối {mode} phải là object")
-    allowed = GATHER_KEYS if mode == "gather" else QUAN_KEYS
+    allowed = GATHER_KEYS if mode == "gather" else QUAN_KEYS if mode == "quan" else DAY_KEYS
     extra = set(block) - allowed
     if extra:
         raise BadInput(f"trường lạ/chưa hỗ trợ trong {mode}: {sorted(extra)}")
-    dur = int(round(tuning[mode]["duration_s"] * 60))
-    if "time_left_ticks" in block:
-        t = block["time_left_ticks"]
-        if isinstance(t, bool) or not isinstance(t, int) or not (1 <= t <= dur):
-            raise BadInput(f"time_left_ticks phải là số nguyên trong [1, {dur}]")
+    if mode in tuning and "duration_s" in tuning[mode]:
+        dur = int(round(tuning[mode]["duration_s"] * 60))
+        if "time_left_ticks" in block:
+            t = block["time_left_ticks"]
+            if isinstance(t, bool) or not isinstance(t, int) or not (1 <= t <= dur):
+                raise BadInput(f"time_left_ticks phải là số nguyên trong [1, {dur}]")
     if mode == "gather":
         _validate_gather(block, tuning)
-    else:
+    elif mode == "quan":
         _validate_quan(block, tuning)
     return block
 
