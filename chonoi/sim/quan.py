@@ -6,11 +6,13 @@ Luật chơi Phase 1 theo PRD-0 mục F:
 - Phục vụ, thanh toán & đóng ca: `chonoi/sim/service.py` (`interact_table`, `step_service_and_closing`).
 """
 
+
 import math
 
 from ..errors import BadInput
 from ..ids import id_key, sort_by_id
 from .kitchen import interact_stove, step_stoves
+
 from .ramp import ramp_velocity
 from .service import handle_table_interact, update_service
 
@@ -34,6 +36,7 @@ class QuanSim:
         self._ramp_left = 0
         # kho: --inventory HOẶC scenario.stock (cả hai -> cli đã báo mã 2)
         self.stock = dict(inventory if inventory is not None else scenario.get("stock", {}))
+
         self.hand = dict(scenario["hand"]) if scenario.get("hand") is not None else None
         self.time_left_ticks = scenario.get("time_left_ticks", int(round(t["duration_s"] * TICK)))
         self.phase_tick = 0
@@ -89,6 +92,7 @@ class QuanSim:
             if q > self.stock.get(k, 0):
                 raise BadInput(f"giữ chỗ vượt quá tồn kho cho {k}: {q} > {self.stock.get(k, 0)}")
 
+
         self.money = 0
         self.earned = 0
         self.shift_earned = 0
@@ -132,6 +136,7 @@ class QuanSim:
 
     def step(self, inp):
         events = []
+
         # 1. Tăng đồng hồ và giảm timer ca
         self.phase_tick += 1
         self.time_left_ticks = max(0, self.time_left_ticks - 1)
@@ -148,6 +153,7 @@ class QuanSim:
         # 4. Tiến trình ăn, kiên nhẫn, thanh toán (Người B) & đóng ca
         events.extend(update_service(self))
         if shift_closing:
+
             self.done = True
             self.reason = "time"
             events.append(("quan_end", {
@@ -230,7 +236,7 @@ class QuanSim:
         self.vel = ramp_velocity(self, (mx * speed, mz * speed), int(self.t.get("ramp_max_ticks", 6)))
         b = self.t["bounds"]
         for i, axis in enumerate(("x", "z")):
-            self.pos[i] += self.vel[i] / TICK
+            self.pos[i] += self.vel[i] / self.hz
             lo, hi = b[axis]
             if self.pos[i] <= lo:
                 self.pos[i], self.vel[i] = lo, max(0.0, self.vel[i])
