@@ -2,7 +2,7 @@
 
 Game quản lý quán ăn 2D mang bản sắc miền Tây. Út Sen lặn bắt cá, hái bông trên sông Chín Khúc vào buổi sáng; tối về nấu và phục vụ khách trên nhà bè của Má Tư; cuối ngày dùng tiền mua nâng cấp ở Shop. Một lượt chuẩn gồm 5 Ngày (kế hoạch D1–D5).
 
-Bản v1.0.0 · Test Contract **v1.3** (gameplay, tuning, kho và JSONL theo v1.2) · Đề bài và lab board: **[Chợ Nổi Lab](https://claude.ai/artifact/E35v787wSx2wDgPTNhMVDg)**.
+[Bản v1.0.0](https://github.com/ArthurTheMana/K5-L3B-LAB-Day12-AI-SDLC-NhomLeague/releases/tag/v1.0.0) · Test Contract **v1.3** (gameplay, tuning, kho và JSONL theo v1.2) · Đề bài và lab board: **[Chợ Nổi Lab](https://claude.ai/artifact/E35v787wSx2wDgPTNhMVDg)**.
 
 ## Yêu cầu môi trường
 

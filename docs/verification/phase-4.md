@@ -9,8 +9,8 @@
 | AC-P4-05 | Clone sạch, chạy bản có giao diện bằng ≤ 3 lệnh theo README | [clean-clone.md](../proof/phase-4/clean-clone.md) | Đạt trên Windows. Chưa thử trên macOS/Linux thật |
 | AC-P4-06 | README có yêu cầu môi trường, điều khiển, cách tính điểm, lệnh test/headless/bench/soak, giới hạn đã biết | [README.md](../../README.md) | Đạt |
 | AC-P4-07 | Rà `CREDITS.md` và `LICENSE` cho tài sản đã dùng | [CREDITS.md](../../CREDITS.md), [LICENSE](../../LICENSE) | Một phần: đã có LICENSE (MIT) và nguồn âm thanh/phông. Nguồn 8 sprite còn chờ dinhnam269 xác nhận công cụ tạo |
-| AC-P4-08 | Tag `phase-4` và GitHub Release v1.0.0 cùng trỏ một commit trên `main`, có bản đóng gói và release notes | Tab Releases trên GitHub | Chưa đạt (chưa gắn tag/Release) |
-| AC-P4-09 | Retro rà hành động P2, phản tư cá nhân đủ 5 người | `docs/retro.md`, `docs/members/` | Chưa đạt |
+| AC-P4-08 | Tag `phase-4` và GitHub Release v1.0.0 cùng trỏ một commit trên `main`, có bản đóng gói và release notes | [GitHub Release v1.0.0](https://github.com/ArthurTheMana/K5-L3B-LAB-Day12-AI-SDLC-NhomLeague/releases/tag/v1.0.0) | Đạt |
+| AC-P4-09 | Retro rà hành động P2, phản tư cá nhân đủ 5 người | `docs/retro.md`, `docs/members/` | Đạt |
 | — | Mở rộng (nhóm 5 người ≥ 1 mục) | `game.contract.json` → `extensions` | Chưa làm |
 
 ## Ghi chú
