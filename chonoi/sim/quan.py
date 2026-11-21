@@ -92,6 +92,13 @@ class QuanSim:
             if q > self.stock.get(k, 0):
                 raise BadInput(f"giữ chỗ vượt quá tồn kho cho {k}: {q} > {self.stock.get(k, 0)}")
 
+        # Kiểm tra mâu thuẫn kịch bản: đơn assigned phải có bếp nấu, khách eating phải có base_price
+        cooking_orders = {s["dish"]["order_id"] for s in self.stoves if s.get("dish")}
+        for c in self.customers:
+            if c.get("order_status") == "assigned" and c["id"] not in cooking_orders:
+                raise BadInput(f"đơn assigned {c['id']} phải có bếp đang nấu")
+            if c.get("state") == "eating" and (not c.get("base_price") or c["base_price"] <= 0):
+                raise BadInput(f"khách eating {c['id']} thiếu base_price")
 
         self.money = 0
         self.earned = 0
@@ -142,6 +149,12 @@ class QuanSim:
         self.time_left_ticks = max(0, self.time_left_ticks - 1)
         shift_closing = self.time_left_ticks <= 0
 
+        for c in self.customers:
+            if c["state"] in ("waiting", "waiting_dish"):
+                c["patience_ticks_left"] = max(0, c["patience_ticks_left"] - 1)
+            elif c["state"] == "eating":
+                c["eat_ticks_left"] = max(0, c["eat_ticks_left"] - 1)
+
         # 2. Bếp: đếm nấu / ready_ticks và chuyển cooking -> ready (Người A)
         step_stoves(self, events)
 
@@ -153,6 +166,41 @@ class QuanSim:
         # 4. Tiến trình ăn, kiên nhẫn, thanh toán (Người B) & đóng ca
         events.extend(update_service(self))
         if shift_closing:
+            for c in list(self.customers):
+                dish_name = c.get("dish_id") or c.get("dish")
+                if c.get("state") == "eating":
+                    base_price = c.get("base_price") or int(self.menu.get(dish_name, {}).get("price", 0))
+                    tip = c.get("tip", 0)
+                    total = base_price + tip
+                    self.money += total
+                    self.earned += total
+                    self.shift_earned += total
+                    events.append(("paid", {
+                        "order_id": c.get("id"),
+                        "customer_id": c.get("id"),
+                        "dish_id": dish_name,
+                        "dish": dish_name,
+                        "amount": total,
+                        "tip": tip,
+                        "reputation": round(float(self.reputation), 3),
+                        "reason": "shift_closing",
+                    }))
+                elif c.get("state") in ("waiting", "waiting_dish"):
+                    events.append(("customer_left", {
+                        "order_id": c.get("id"),
+                        "customer_id": c.get("id"),
+                        "table_id": c.get("table_id"),
+                        "reason": "closing",
+                        "reputation": round(float(self.reputation), 3),
+                    }))
+
+            self.hand = None
+            self.customers = []
+            for s in self.stoves:
+                s["state"] = "idle"
+                s["dish"] = None
+                s["cook_ticks_left"] = 0
+                s["ready_ticks"] = 0
 
             self.done = True
             self.reason = "time"
@@ -161,7 +209,7 @@ class QuanSim:
                 "money": self.money,
                 "earned": self.earned,
                 "shift_earned": self.shift_earned,
-                "reputation": self.reputation,
+                "reputation": round(float(self.reputation), 3),
             }))
             return events
 
@@ -236,7 +284,7 @@ class QuanSim:
         self.vel = ramp_velocity(self, (mx * speed, mz * speed), int(self.t.get("ramp_max_ticks", 6)))
         b = self.t["bounds"]
         for i, axis in enumerate(("x", "z")):
-            self.pos[i] += self.vel[i] / self.hz
+            self.pos[i] += self.vel[i] / TICK
             lo, hi = b[axis]
             if self.pos[i] <= lo:
                 self.pos[i], self.vel[i] = lo, max(0.0, self.vel[i])

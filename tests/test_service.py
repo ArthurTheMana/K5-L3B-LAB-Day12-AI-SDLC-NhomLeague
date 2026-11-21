@@ -145,8 +145,8 @@ class TestServiceInteract(unittest.TestCase):
 class TestServiceDiningAndPayment(unittest.TestCase):
     """Kiểm tra chức năng 2: Tiến trình ăn, Thanh toán & Tiền tip (update_dining)."""
 
-    def test_dining_countdown(self):
-        """Khách đang ăn thì mỗi tick giảm eat_ticks_left 1 đơn vị."""
+    def test_dining_still_eating(self):
+        """Khách đang ăn và còn thời gian thì không kích hoạt paid."""
         customer = {
             "id": "C1",
             "table_id": "T1",
@@ -158,19 +158,19 @@ class TestServiceDiningAndPayment(unittest.TestCase):
 
         events = update_dining(sim)
         self.assertEqual(events, [])
-        self.assertEqual(customer["eat_ticks_left"], 9)
         self.assertEqual(len(sim.customers), 1)
 
     def test_paid_with_tip_when_served_fast(self):
-        """Ăn xong và nhận tip nếu kiên nhẫn lúc trước >= 50%."""
+        """Ăn xong và nhận tip nếu kiên nhẫn lúc trước >= 50% (tip đã được tính lúc giao)."""
         customer = {
             "id": "C1",
             "table_id": "T1",
             "dish": "ca_loc_nuong_trui",  # Giá 60
+            "dish_id": "ca_loc_nuong_trui",
+            "base_price": 60,
+            "tip": 12,  # 60 * 0.2 = 12
             "state": "eating",
-            "eat_ticks_left": 1,
-            "patience_ticks": 2400,  # 2400 / 3600 = 66.7% > 50%
-            "patience_ticks_left": 2400,
+            "eat_ticks_left": 0,
         }
         sim = FakeQuanSim(customers=[customer], money=0, reputation=3.0)
 
@@ -179,9 +179,9 @@ class TestServiceDiningAndPayment(unittest.TestCase):
         name, data = events[0]
         self.assertEqual(name, "paid")
         self.assertEqual(data["customer_id"], "C1")
-        self.assertEqual(data["dish"], "ca_loc_nuong_trui")
-        self.assertEqual(data["amount"], 60)
-        self.assertEqual(data["tip"], 12)  # 60 * 0.2 = 12
+        self.assertEqual(data["dish_id"], "ca_loc_nuong_trui")
+        self.assertEqual(data["amount"], 72)
+        self.assertEqual(data["tip"], 12)
         self.assertAlmostEqual(data["reputation"], 3.2, places=2)  # 3.0 + 0.2
 
         # Tài chính được cộng đúng 60 + 12 = 72
@@ -196,10 +196,11 @@ class TestServiceDiningAndPayment(unittest.TestCase):
             "id": "C1",
             "table_id": "T1",
             "dish": "ca_loc_nuong_trui",  # Giá 60
+            "dish_id": "ca_loc_nuong_trui",
+            "base_price": 60,
+            "tip": 0,
             "state": "eating",
-            "eat_ticks_left": 1,
-            "patience_ticks": 600,  # 600 / 3600 = 16.7% < 50%
-            "patience_ticks_left": 600,
+            "eat_ticks_left": 0,
         }
         sim = FakeQuanSim(customers=[customer], money=0, reputation=3.0)
 
@@ -217,9 +218,11 @@ class TestServiceDiningAndPayment(unittest.TestCase):
             "id": "C1",
             "table_id": "T1",
             "dish": "goi_bong_sung",
+            "dish_id": "goi_bong_sung",
+            "base_price": 40,
+            "tip": 8,
             "state": "eating",
-            "eat_ticks_left": 1,
-            "patience_ticks_left": 3600,
+            "eat_ticks_left": 0,
         }
         sim = FakeQuanSim(customers=[customer], reputation=4.95)
         update_dining(sim)
@@ -229,27 +232,26 @@ class TestServiceDiningAndPayment(unittest.TestCase):
 class TestServicePatience(unittest.TestCase):
     """Kiểm tra chức năng 3: Quản lý kiên nhẫn & Khách bỏ về (update_patience)."""
 
-    def test_patience_countdown(self):
-        """Khách chờ món mỗi tick giảm kiên nhẫn 1 đơn vị."""
+    def test_patience_still_waiting(self):
+        """Khách chờ món khi còn kiên nhẫn thì không bỏ đi."""
         customer = {
             "id": "C1",
             "table_id": "T1",
-            "state": "waiting_dish",
+            "state": "waiting",
             "patience_ticks_left": 100,
         }
         sim = FakeQuanSim(customers=[customer])
         events = update_patience(sim)
         self.assertEqual(events, [])
-        self.assertEqual(customer["patience_ticks_left"], 99)
-        self.assertEqual(customer["patience_ticks"], 99)
+        self.assertEqual(len(sim.customers), 1)
 
     def test_customer_leaves_when_out_of_patience(self):
         """Hết kiên nhẫn -> khách bỏ đi, trừ uy tín và giải phóng bàn."""
         customer = {
             "id": "C1",
             "table_id": "T1",
-            "state": "waiting_dish",
-            "patience_ticks_left": 1,
+            "state": "waiting",
+            "patience_ticks_left": 0,
         }
         sim = FakeQuanSim(customers=[customer], reputation=3.0)
 
@@ -258,7 +260,7 @@ class TestServicePatience(unittest.TestCase):
         name, data = events[0]
         self.assertEqual(name, "customer_left")
         self.assertEqual(data["customer_id"], "C1")
-        self.assertEqual(data["reason"], "impatient")
+        self.assertEqual(data["reason"], "patience")
         self.assertAlmostEqual(data["reputation"], 2.5, places=2)  # 3.0 - 0.5
 
         # Uy tín bị trừ và bàn được giải phóng
@@ -270,8 +272,8 @@ class TestServicePatience(unittest.TestCase):
         customer = {
             "id": "C1",
             "table_id": "T1",
-            "state": "waiting_dish",
-            "patience_ticks_left": 1,
+            "state": "waiting",
+            "patience_ticks_left": 0,
         }
         sim = FakeQuanSim(customers=[customer], reputation=0.2)
         update_patience(sim)
@@ -288,6 +290,8 @@ class TestServicePatience(unittest.TestCase):
         }
         sim = FakeQuanSim(customers=[customer])
         events = update_patience(sim)
+        self.assertEqual(events, [])
+        self.assertEqual(customer["patience_ticks_left"], 1)
         self.assertEqual(events, [])
         self.assertEqual(customer["patience_ticks_left"], 1)
 

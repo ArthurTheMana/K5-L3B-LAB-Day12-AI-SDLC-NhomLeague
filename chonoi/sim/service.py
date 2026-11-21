@@ -77,6 +77,7 @@ def handle_table_interact(sim: Any, table: Dict[str, Any]) -> List[Tuple[str, Di
         # 4. Phục vụ thành công
         sim.hand = None
         customer["state"] = "eating"
+        customer["order_status"] = "served"
 
         # Thời gian ăn đọc từ tuning (mặc định 10s)
         eat_s = 10.0
@@ -87,11 +88,30 @@ def handle_table_interact(sim: Any, table: Dict[str, Any]) -> List[Tuple[str, Di
         customer["eat_ticks_left"] = eat_ticks
         customer["eat_max_ticks"] = eat_ticks
 
+        # Tính trước tip khi phục vụ:
+        # Nếu còn >= 50% kiên nhẫn lúc giao: boa = floor(giá * 0.2)
+        patience_left = customer.get("patience_ticks_left", customer.get("patience_ticks", 0))
+        pat_s = float(sim.t.get("patience_s", 60.0)) if hasattr(sim, "t") else 60.0
+        patience_total = max(1, customer.get("patience_ticks", int(round(pat_s * TICK))))
+        patience_ratio = patience_left / patience_total
+        tip = 0
+        dish_info = sim.menu.get(hand_dish, {}) if hasattr(sim, "menu") else {}
+        base_price = customer.get("base_price") or int(dish_info.get("price", 0))
+        customer["base_price"] = base_price
+        tip_min_ratio = float(sim.t.get("tip_min_patience_ratio", 0.5)) if hasattr(sim, "t") else 0.5
+        tip_rate = float(sim.t.get("tip_rate", 0.2)) if hasattr(sim, "t") else 0.2
+        if patience_ratio >= tip_min_ratio:
+            tip = int(math.floor(base_price * tip_rate))
+        customer["tip"] = tip
+
         # Bắn sự kiện served
         event_data = {
+            "order_id": customer.get("id"),
             "table_id": table_id,
             "customer_id": customer.get("id", ""),
+            "dish_id": hand_dish,
             "dish": hand_dish,
+            "tip": tip,
         }
         events.append(("served", event_data))
 
@@ -139,23 +159,14 @@ def update_dining(sim: Any) -> List[Tuple[str, Dict[str, Any]]]:
                 continue
 
             try:
-                # Đếm lùi thời gian ăn
-                eat_left = c.get("eat_ticks_left", 0) - 1
-                c["eat_ticks_left"] = max(0, eat_left)
-
-                if c["eat_ticks_left"] <= 0:
+                if c.get("eat_ticks_left", 0) <= 0:
                     # Khách đã ăn xong -> Tiến hành thanh toán
                     dish = c.get("dish") or c.get("dish_id", "")
                     dish_info = menu.get(dish, {}) if isinstance(menu, dict) else {}
-                    base_price = int(dish_info.get("price", 0))
+                    base_price = c.get("base_price") or int(dish_info.get("price", 0))
 
-                    # Xét tỷ lệ kiên nhẫn còn lại lúc trước
-                    pat_left = c.get("patience_ticks_left", c.get("patience_ticks", 0))
-                    pat_ratio = pat_left / pat_max_ticks
-
-                    tip = 0
-                    if pat_ratio >= tip_min_ratio:
-                        tip = int(math.floor(base_price * tip_rate))
+                    tip = c.get("tip", 0)
+                    if tip > 0:
                         current_rep = getattr(sim, "reputation", 3.0)
                         sim.reputation = max(rep_min, min(rep_max, current_rep + tip_reputation))
 
@@ -168,11 +179,14 @@ def update_dining(sim: Any) -> List[Tuple[str, Dict[str, Any]]]:
                     sim.reputation = max(rep_min, min(rep_max, getattr(sim, "reputation", 3.0)))
 
                     events.append(("paid", {
+                        "order_id": c.get("id"),
                         "customer_id": c.get("id", ""),
+                        "dish_id": dish,
                         "dish": dish,
-                        "amount": base_price,
+                        "amount": total_amount,
                         "tip": tip,
                         "reputation": round(float(sim.reputation), 3),
+                        "reason": "finished_eating",
                     }))
 
                     finished_customer_ids.append(c.get("id"))
@@ -221,19 +235,19 @@ def update_patience(sim: Any) -> List[Tuple[str, Dict[str, Any]]]:
                 continue
 
             try:
-                # Đồng bộ cả 2 khóa patience_ticks và patience_ticks_left để UI và test đều đọc được
-                cur_pat = c.get("patience_ticks_left", c.get("patience_ticks", 0)) - 1
-                c["patience_ticks_left"] = max(0, cur_pat)
-                c["patience_ticks"] = c["patience_ticks_left"]
-
-                if c["patience_ticks_left"] <= 0:
+                if c.get("patience_ticks_left", 0) <= 0:
                     # Khách hết kiên nhẫn bỏ về
                     current_rep = getattr(sim, "reputation", 3.0)
                     sim.reputation = max(rep_min, min(rep_max, current_rep + left_delta))
 
+                    if hasattr(sim, "_release_customer_order"):
+                        sim._release_customer_order(c.get("id"))
+
                     events.append(("customer_left", {
+                        "order_id": c.get("id"),
                         "customer_id": c.get("id", ""),
-                        "reason": "impatient",
+                        "table_id": c.get("table_id"),
+                        "reason": "patience",
                         "reputation": round(float(sim.reputation), 3),
                     }))
 
