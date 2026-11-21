@@ -22,6 +22,11 @@ def build_sim(mode, tuning, scenario, seed, inventory):
     streams, ids = Streams(seed), IdAllocator()
     if mode == "gather":
         return GatherSim(tuning, scenario, streams, ids)
+    elif mode == "quan":
+        return QuanSim(tuning, scenario, streams, ids, inventory=inventory)
+    elif mode == "day":
+        from .sim.day import DaySim
+        return DaySim(tuning, scenario, streams, ids, inventory=inventory)
     return QuanSim(tuning, scenario, streams, ids, inventory=inventory)
 
 
