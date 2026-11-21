@@ -4,7 +4,7 @@
 
 | Thành viên | GitHub handle | Module chính | Vai quy trình | Người dự phòng cho |
 |---|---|---|---|---|
-| Arthur (ArthurHighRisk) | ArthurTheMana | sim/gather | Integrator | sim/quan |
+| Arthur (ArthurHighRisk) Nguyễn Tài Minh Huy | ArthurTheMana | sim/gather | Integrator | sim/quan |
 | Phạm Đình Nam | dinhnam269 | client/ui | QA lead | sim/gather |
 | Đỗ Anh Thư | DoAnhThu832004 | sim/quan | PO | sim/gather |
 | Lê Huỳnh Trường Giang | vtgiang213 | sim/gather | Scrum/Release | client/ui |
