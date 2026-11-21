@@ -15,7 +15,7 @@ class TestPhase2Data(unittest.TestCase):
         cls.tuning = contract["tuning"]
         cls.quan = cls.tuning["quan"]
         cls.menu = cls.tuning["menu"]
-        cls.day_plan = cls.tuning.get("day_plan", [])
+        cls.day_plan = cls.tuning["day_plan"]
 
     def test_stoves_configuration(self):
         """Bếp gồm đúng 2 bếp B1 [2, 8] và B2 [5, 8]."""
@@ -83,11 +83,23 @@ class TestPhase2Data(unittest.TestCase):
         self.assertEqual(len(self.day_plan), 5, "day_plan phải có đúng 5 ngày")
 
         for idx, plan in enumerate(self.day_plan, start=1):
+            self.assertEqual(set(plan), {"day", "dishes", "ingredients"})
             day_val = plan.get("day")
-            self.assertIn(day_val, (idx, f"D{idx}"), f"Ngày thứ {idx} phải có day là {idx} hoặc D{idx}")
+            self.assertEqual(day_val, idx, f"Ngày thứ {idx} phải có day là {idx}")
 
             dishes = plan.get("dishes", {})
             self.assertTrue(dishes, f"Ngày {day_val} không có dishes")
+
+            # Mọi giá trị trong dishes là số nguyên dương
+            for dish_id, count in dishes.items():
+                self.assertTrue(isinstance(count, int) and not isinstance(count, bool) and count > 0,
+                                f"dishes.{dish_id} của ngày {day_val} phải là số nguyên dương")
+
+            # Mọi giá trị trong ingredients là số nguyên dương
+            ingredients = plan.get("ingredients", {})
+            for ing_id, qty in ingredients.items():
+                self.assertTrue(isinstance(qty, int) and not isinstance(qty, bool) and qty > 0,
+                                f"ingredients.{ing_id} của ngày {day_val} phải là số nguyên dương")
 
             # Mọi món phải nằm trong menu
             for dish_id in dishes:
@@ -102,7 +114,7 @@ class TestPhase2Data(unittest.TestCase):
 
             self.assertEqual(
                 calculated_ingredients,
-                plan.get("ingredients"),
+                ingredients,
                 f"Lệch ingredients tính toán ở ngày {day_val}"
             )
 

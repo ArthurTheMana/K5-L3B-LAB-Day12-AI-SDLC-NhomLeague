@@ -19,7 +19,7 @@ class TestQuanCustomers(unittest.TestCase):
             self.assertEqual(evs[0]["data"]["order_id"], "C1")
             self.assertEqual(evs[0]["data"]["table_id"], "T1")
 
-    def test_customer_patience_and_c2_arrival_at_3720(self):
+    def test_customer_patience_and_c5_arrival_at_3720(self):
         """Ở tick 3720 (120 + 3600), C1 hết kiên nhẫn bỏ về và C5 xuất hiện (P2 v1.1: 4 bàn T1-T4)."""
         with Workdir() as w:
             sc = write_json(w.path("sc.json"), {"quan": {"stock": {"ca_loc": 5}}})
@@ -28,6 +28,12 @@ class TestQuanCustomers(unittest.TestCase):
                                      "--scenario", sc, "--out", out)
             self.assertEqual(code, 0, f"Error: {err}")
             rows = read_jsonl(out)
+
+            arr = [(r["tick"], r["data"]["order_id"], r["data"]["table_id"])
+                   for r in rows if r["type"] == "event" and r["name"] == "customer_arrived"]
+            self.assertEqual(arr[:4], [(120, "C1", "T1"), (1020, "C2", "T2"),
+                                       (1920, "C3", "T3"), (2820, "C4", "T4")])
+
             left_evs = [r for r in rows if r["type"] == "event" and r["name"] == "customer_left" and r["tick"] == 3720]
             self.assertEqual(len(left_evs), 1)
             self.assertEqual(left_evs[0]["data"]["reason"], "patience")
