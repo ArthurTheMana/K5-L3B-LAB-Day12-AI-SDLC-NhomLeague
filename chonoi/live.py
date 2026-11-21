@@ -210,6 +210,23 @@ class LiveGame:
         with self._lock:
             self._reset()
 
+    def switch_mode(self, mode: str):
+        if mode not in ("gather", "quan", "day"):
+            raise ValueError(f"mode không hợp lệ: {mode}")
+        scen = {}
+        if mode == "quan":
+            default_quan = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "scenarios", "bep_cao_diem_cho_noi.json",
+            )
+            if os.path.isfile(default_quan):
+                scen = load_scenario(default_quan, "quan", self.tuning)
+        with self._lock:
+            _, tuning, _, seed, inv, days = self._args
+            self.mode = mode
+            self._args = (mode, tuning, scen, seed, None if scen.get("stock") is not None else inv, 5 if mode == "day" else days)
+            self._reset()
+
 
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -236,6 +253,15 @@ class _Handler(BaseHTTPRequestHandler):
                     self._send(200, f.read(), "text/html; charset=utf-8")
             except OSError:
                 self._send(404, b'{"error":"thieu index.html"}')
+        elif path.startswith("/assets/"):
+            fname = os.path.basename(path[len("/assets/"):])
+            fpath = os.path.join(WEB_DIR, "assets", fname)
+            if fname and os.path.isfile(fpath):
+                ctype = "image/png" if fname.endswith(".png") else "application/octet-stream"
+                with open(fpath, "rb") as f:
+                    self._send(200, f.read(), ctype)
+            else:
+                self._send(404, b'{"error":"khong co asset"}')
         else:
             self._send(404, b'{"error":"khong co"}')
 
@@ -257,6 +283,11 @@ class _Handler(BaseHTTPRequestHandler):
                 self.game.set_input(body)
             elif path == "/restart":
                 self.game.restart()
+            elif path == "/switch_mode":
+                body = json.loads(raw.decode("utf-8") or "{}")
+                if not isinstance(body, dict) or "mode" not in body:
+                    raise ValueError("cần {'mode': 'gather'|'quan'|'day'}")
+                self.game.switch_mode(body["mode"])
             else:
                 self._send(404, b'{"error":"khong co"}')
                 return
