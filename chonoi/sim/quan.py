@@ -23,10 +23,23 @@ class QuanSim:
     mode = "quan"
     phase = "quan"
 
-    def __init__(self, tuning, scenario, streams, ids, inventory=None):
+    def __init__(self, tuning, scenario, streams, ids, inventory=None, dish_pool=None):
+        """Khởi tạo mô phỏng Quán (`quan`).
+
+        dish_pool: iterable các dish_id trong kế hoạch ngày (mode day); None nếu dùng toàn bộ menu (mode quan độc lập).
+        """
         t = tuning["quan"]
         self.t = t
         self.menu = tuning["menu"]
+        if dish_pool is None:
+            self.dish_pool = None
+        else:
+            self.dish_pool = sorted(set(dish_pool))
+            if not self.dish_pool:
+                raise BadInput("dish_pool không được rỗng")
+            for dish_id in self.dish_pool:
+                if dish_id not in self.menu:
+                    raise BadInput(f"dish_pool chứa món không có trong menu: {dish_id}")
         self.rng = streams
         self.ids = ids
         p = scenario.get("player", {})
@@ -225,8 +238,9 @@ class QuanSim:
                     for c in self.customers:
                         for k, q in c.get("reserved", {}).items():
                             avail[k] = avail.get(k, 0) - q
+                    candidates = self.dish_pool if self.dish_pool is not None else sorted(self.menu.keys())
                     affordable = [
-                        dish_id for dish_id in sorted(self.menu.keys())
+                        dish_id for dish_id in candidates
                         if all(avail.get(k, 0) >= q for k, q in self.menu[dish_id]["recipe"].items())
                     ]
                     if not affordable:
