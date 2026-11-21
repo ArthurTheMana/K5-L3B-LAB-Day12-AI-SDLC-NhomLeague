@@ -172,7 +172,7 @@ class LiveGame:
                     self.session.sim.live_choke_interval_ticks
                 )
             phase = snap["phase"] if self.mode == "day" else self.mode
-            snap["meta"] = self.tuning.get(phase, {})
+            snap["meta"] = dict(self.tuning.get(phase, {}), freshness=self.tuning.get("freshness"))
             if self.mode == "day":
                 snap["shop_catalog"] = self.tuning["shop"]["upgrades"]
                 snap["ui_screen"] = self.ui_screen
@@ -310,9 +310,10 @@ def main(argv=None) -> int:
             raise BadInput("--inventory chỉ dùng với quan")
         if a.inventory_out and a.mode != "gather":
             raise BadInput("--inventory-out chỉ dùng với gather")
-        tuning = load_contract()["tuning"]
+        contract = load_contract()
+        tuning = contract["tuning"]
         scenario = load_scenario(a.scenario, a.mode, tuning)
-        inventory = read_inventory(a.inventory) if a.inventory else None
+        inventory = read_inventory(a.inventory, contract_version=contract.get("contract_version")) if a.inventory else None
         if inventory is not None and "stock" in scenario:
             raise BadInput("vừa có quan.stock vừa có --inventory")
         game = LiveGame(a.mode, tuning, scenario, a.seed, inventory, a.inventory_out)

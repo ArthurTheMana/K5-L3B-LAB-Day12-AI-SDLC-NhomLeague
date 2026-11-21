@@ -58,7 +58,7 @@ class QuanSim:
         self._tgt = None
         self._ramp_left = 0
         # kho: --inventory HOẶC scenario.stock (cả hai -> cli đã báo mã 2)
-        raw_stock = inventory if inventory is not None else scenario.get("stock", {})
+        raw_stock = inventory if inventory is not None else scenario.get("stock", [] if self.freshness else {})
         if isinstance(raw_stock, list):
             seen_stock_ids = set()
             self.stock = []
@@ -68,6 +68,7 @@ class QuanSim:
                 if it["id"] in seen_stock_ids:
                     raise BadInput(f"id cá thể trùng trong kho: {it['id']}")
                 seen_stock_ids.add(it["id"])
+                ids.reserve(it["id"])
                 fresh_val = it["fresh"]
                 if isinstance(fresh_val, bool) or not isinstance(fresh_val, (int, float, Fraction)):
                     raise BadInput(f"fresh không hợp lệ cho {it['id']}: {fresh_val!r}")
@@ -137,7 +138,7 @@ class QuanSim:
             for c in self.customers:
                 status = c.get("order_status")
                 res = c.get("reserved")
-                if status in ("unfulfillable", "assigned"):
+                if status in ("unfulfillable", "assigned", "served"):
                     if res not in (None, []):
                         raise BadInput(f"đơn {status} {c['id']} phải có reserved rỗng")
                     c["reserved"] = []
@@ -165,6 +166,8 @@ class QuanSim:
             missing_res.sort(key=lambda c: (c["order_tick"], id_key(c["table_id"])))
             for c in missing_res:
                 _re_reserve_v12(self, c, self.menu[c["dish_id"]]["recipe"], self.spoiled_below)
+                if c["order_status"] == "unfulfillable":
+                    raise BadInput(f"không đủ nguyên liệu giữ chỗ cho {c['id']}")
 
             for c in self.customers:
                 if c["reserved"] is None:
@@ -230,7 +233,7 @@ class QuanSim:
                 {
                     "id": it["id"],
                     "kind": it["kind"],
-                    "fresh": round(float(it["fresh"]), 3),
+                    "fresh": float(it["fresh"]),
                 }
                 for it in sort_by_id(self.stock)
             ]

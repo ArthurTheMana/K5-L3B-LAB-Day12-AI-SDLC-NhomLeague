@@ -140,7 +140,7 @@ class TestPhase2DishPool(unittest.TestCase):
                 "quan": {
                     "random_customers": False,
                     "player": {"pos": [2, 8]},
-                    "stock": {"ca_loc": 2},
+                    "stock": [{"id": "I1", "kind": "ca_loc", "fresh": 100}, {"id": "I2", "kind": "ca_loc", "fresh": 100}],
                     "customers": [
                         {"id": "C1", "table_id": "T2", "dish_id": "ca_loc_nuong_trui", "order_tick": 0},
                         {"id": "C2", "table_id": "T1", "dish_id": "ca_loc_nuong_trui", "order_tick": 0},
@@ -166,7 +166,7 @@ class TestPhase2DishPool(unittest.TestCase):
                 "quan": {
                     "random_customers": True,
                     "player": {"pos": [2, 8]},
-                    "stock": {"ca_loc": 2},
+                    "stock": [{"id": "I1", "kind": "ca_loc", "fresh": 100}, {"id": "I2", "kind": "ca_loc", "fresh": 100}],
                     "customers": [
                         {"id": "C1", "table_id": "T2", "dish_id": "ca_loc_nuong_trui", "order_tick": 0},
                     ],

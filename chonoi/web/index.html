@@ -362,7 +362,7 @@ function drawGather(w, h) {
     if (nearDock || nearNode) text(nearDock ? "E: cập bến" : "E: hái rau", w / 2, 120, { size: 18, align: "center" });
   }
   if (snap.day_plan) {
-    const have = {}; (snap.hold || []).forEach((kind) => { have[kind] = (have[kind] || 0) + 1; });
+    const have = {}; (snap.hold || []).forEach((item) => { const kind = item.kind || item; have[kind] = (have[kind] || 0) + 1; });
     const target = Object.entries(snap.day_plan.ingredients).map(([kind, count]) =>
       `${KIND_NAME[kind] || kind} ${have[kind] || 0}/${count}`).join(" · ");
     text(`Ngày ${snap.day}: ${target}`, 14, 76, { size: 18 });
@@ -374,10 +374,12 @@ function drawGather(w, h) {
     for (let i = 0; i < cap; i++) {
       const x0 = 14 + i * (sz + 4);
       ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x0, y0, sz, sz);
-      if (snap.hold[i]) { ctx.fillStyle = kc(snap.hold[i]); ctx.fillRect(x0 + 3, y0 + 3, sz - 6, sz - 6); }
+      if (snap.hold[i]) { const item = snap.hold[i]; ctx.fillStyle = kc(item.kind || item); ctx.fillRect(x0 + 3, y0 + 3, sz - 6, sz - 6); }
     }
-    const names = {}; snap.hold.forEach((k) => (names[k] = (names[k] || 0) + 1));
+    const names = {}; snap.hold.forEach((item) => { const k = item.kind || item; names[k] = (names[k] || 0) + 1; });
     text("Giỏ " + snap.hold.length + "/" + cap + "  " + Object.keys(names).map((k) => (KIND_NAME[k] || k) + "×" + names[k]).join(", "), 14, y0 + sz + 16, { size: 12, color: "#cfd8dc" });
+    const spoiled = snap.hold.filter((item) => typeof item === "object" && item.fresh < (meta.freshness?.spoiled_below ?? 30)).length;
+    if (spoiled) text(`Hàng ươn: ${spoiled}`, 14, y0 - 6, { size: 14, color: "#ff5252" });
   }
   text("WASD bơi · Shift Sprint · E hái/cập bến · Space bắt cá · R chơi lại", w - 10, h - 14, { size: 12, align: "right", color: "#9fb3c0" });
 }
@@ -447,7 +449,7 @@ function drawQuan(w, h) {
   const available = {};
   if (Array.isArray(snap.stock)) {
     const reserved = new Set((snap.customers || []).flatMap((c) => Array.isArray(c.reserved) ? c.reserved : []));
-    snap.stock.filter((it) => !reserved.has(it.id)).forEach((it) => { available[it.kind] = (available[it.kind] || 0) + 1; });
+    snap.stock.filter((it) => !reserved.has(it.id) && it.fresh >= (meta.freshness?.spoiled_below ?? 30)).forEach((it) => { available[it.kind] = (available[it.kind] || 0) + 1; });
   } else {
     Object.assign(available, snap.stock || {});
     (snap.customers || []).forEach((c) => {
@@ -458,6 +460,8 @@ function drawQuan(w, h) {
   }
   const stock = Object.keys(available).filter((k) => available[k] > 0).map((k) => (KIND_NAME[k] || k) + "×" + available[k]).join(", ");
   text("Kho khả dụng: " + (stock || "(trống)"), 14, 52, { size: 18, color: "#cfd8dc" });
+  const spoiled = Array.isArray(snap.stock) ? snap.stock.filter((it) => it.fresh < (meta.freshness?.spoiled_below ?? 30)).length : 0;
+  if (spoiled) text(`Hàng ươn: ${spoiled}`, 14, 73, { size: 14, color: "#ff5252" });
   text("WASD/mũi tên đi · E tương tác (bếp / bàn) · R chơi lại", w - 10, h - 14, { size: 12, align: "right", color: "#9fb3c0" });
 }
 
@@ -490,10 +494,12 @@ function dayScreen(w, h) {
     text("E: tiếp tục", w / 2, h - 40, { size: 18, align: "center" });
   } else if (screen === "evening_intro") {
     text("Nguyên liệu đưa về quán", w / 2, h / 2 - 65, { size: 26, align: "center" });
-    const stock = Object.entries(snap.stock || {}).map(([kind, n]) => `${KIND_NAME[kind] || kind}: ${n}`).join(" · ");
+    const counts = {}; (Array.isArray(snap.stock) ? snap.stock : []).forEach((item) => { if (item.fresh >= (snap.meta?.freshness?.spoiled_below ?? 30)) counts[item.kind] = (counts[item.kind] || 0) + 1; });
+    if (!Array.isArray(snap.stock)) Object.assign(counts, snap.stock || {});
+    const stock = Object.entries(counts).map(([kind, n]) => `${KIND_NAME[kind] || kind}: ${n}`).join(" · ");
     text(stock || "Kho trống", w / 2, h / 2 - 20, { size: 20, align: "center" });
     const cookable = Object.keys(snap.day_plan.dishes).filter((name) =>
-      Object.entries(snap.menu_recipes[name] || {}).every(([kind, amount]) => (snap.stock[kind] || 0) >= amount));
+      Object.entries(snap.menu_recipes[name] || {}).every(([kind, amount]) => (counts[kind] || 0) >= amount));
     text(`Nấu được: ${cookable.join(", ") || "chưa có"}`, w / 2, h / 2 + 15, { size: 18, align: "center" });
     text("E: tiếp tục", w / 2, h / 2 + 55, { size: 18, align: "center" });
   } else if (screen === "day_result") {

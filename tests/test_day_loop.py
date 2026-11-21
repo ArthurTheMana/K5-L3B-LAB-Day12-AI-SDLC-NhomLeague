@@ -24,7 +24,7 @@ from chonoi.contract import load_contract
 from chonoi.inputs import InputState
 from chonoi.runner import Session
 from chonoi.sim.day import DEFAULT_DAILY_MENU, DaySim
-from helpers import Workdir, read_jsonl, run_headless, write_json
+from helpers import Workdir, read_jsonl, run_headless, write_json, individual_items
 
 
 def _inp(move=(0.0, 0.0), interact=False, buy=None):
@@ -82,7 +82,7 @@ class TestDayLoop(unittest.TestCase):
             "intro_ticks": 1,
             "gather": {
                 "time_left_ticks": 10,
-                "hold": ["ca_loc", "ca_linh", "ca_linh", "bong_sung"],
+                "hold": individual_items(["ca_loc", "ca_linh", "ca_linh", "bong_sung"]),
             },
         })
 
@@ -97,21 +97,19 @@ class TestDayLoop(unittest.TestCase):
         evs = day_sim.step(_inp())
 
         # Kiểm tra kho nhận được nguyên liệu từ giỏ
-        self.assertEqual(day_sim.stock.get("ca_loc"), 1)
-        self.assertEqual(day_sim.stock.get("ca_linh"), 2)
-        self.assertEqual(day_sim.stock.get("bong_sung"), 1)
+        self.assertEqual([(x["id"], x["kind"]) for x in day_sim.stock], [("I1", "ca_loc"), ("I2", "ca_linh"), ("I3", "ca_linh"), ("I4", "bong_sung")])
         self.assertEqual(day_sim.phase, "evening_intro")
 
         # Skip evening_intro -> sang quan
         day_sim.step(_inp(interact=True))
         self.assertEqual(day_sim.phase, "quan")
-        self.assertEqual(day_sim.active_sim.stock.get("ca_loc"), 1)
+        self.assertEqual(day_sim.active_sim.snapshot()["stock"], day_sim.stock)
 
     def test_quan_closing_transfers_money_and_reputation_to_shop(self):
         """Kết thúc ca tối, doanh thu và uy tín chuyển vào Shop ban đêm."""
         day_sim = DaySim(self.tuning, {"intro_ticks": 1})
         day_sim.phase = "quan"
-        day_sim.stock = {"ca_loc": 2}
+        day_sim.stock = individual_items(["ca_loc", "ca_loc"])
         day_sim._start_quan()
 
         # Giả lập quán kết thúc ca với tiền kiếm được và uy tín tăng

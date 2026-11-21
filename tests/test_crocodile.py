@@ -11,6 +11,7 @@ from chonoi.inputs import InputPlayer
 from chonoi.runner import Session
 from chonoi.scenario import load_scenario
 from chonoi.sim.day import DaySim
+from helpers import individual_items
 
 
 def monster(ident="M1", pos=(60, 24), **kwargs):
@@ -43,13 +44,13 @@ class CrocodileTests(unittest.TestCase):
 
     def test_hit_selects_one_and_loses_lifo(self):
         session = self.make_session(player={"pos": [60, 24]},
-                                    hold=["ca_loc", "ca_linh", "bong_sung", "ca_loc", "ca_linh"],
+                                    hold=individual_items(["ca_loc", "ca_linh", "bong_sung", "ca_loc", "ca_linh"]),
                                     monsters=[monster("M10"), monster("M2")])
         events = self.step(session)
         hit = next(e for e in events if e["name"] == "monster_hit")
         self.assertEqual(hit["data"]["monster_id"], "M2")
-        self.assertEqual(hit["data"]["lost"], ["ca_linh", "ca_loc"])
-        self.assertEqual(session.sim.hold, ["ca_loc", "ca_linh", "bong_sung"])
+        self.assertEqual([x["id"] for x in hit["data"]["lost"]], ["I5", "I4"])
+        self.assertEqual([x["id"] for x in session.sim.hold], ["I1", "I2", "I3"])
         self.assertEqual(session.sim.invuln_ticks, 90)
         self.assertEqual(session.sim.monsters[1]["state_ticks_left"], 60)
         self.assertFalse(any(e["name"] == "monster_hit" for e in self.step(session)))
@@ -66,12 +67,12 @@ class CrocodileTests(unittest.TestCase):
 
     def test_faint_discards_remaining_hold(self):
         session = self.make_session(player={"pos": [60, 24], "hp": 1},
-                                    hold=["ca_loc", "ca_linh", "bong_sung"], monsters=[monster()])
+                                    hold=individual_items(["ca_loc", "ca_linh", "bong_sung"]), monsters=[monster()])
         events = self.step(session)
         self.assertEqual([e["name"] for e in events], ["monster_hit", "faint", "gather_end"])
-        self.assertEqual(events[0]["data"]["lost"], ["bong_sung"])
-        self.assertEqual(events[1]["data"]["lost"], ["ca_linh", "ca_loc"])
-        self.assertEqual(events[2]["data"]["inventory"], {"items": {}})
+        self.assertEqual([x["id"] for x in events[0]["data"]["lost"]], ["I3"])
+        self.assertEqual([x["id"] for x in events[1]["data"]["lost"]], ["I2", "I1"])
+        self.assertEqual(events[2]["data"]["inventory"], {"items": []})
 
     def test_invalid_scenario_is_rejected(self):
         with tempfile.TemporaryDirectory() as path:

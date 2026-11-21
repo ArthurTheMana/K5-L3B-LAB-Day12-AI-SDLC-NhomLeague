@@ -65,7 +65,7 @@ class ContractDaySim:
             self.plans[number - 1] = {"day": number, "dishes": dict(dishes), "ingredients": ingredients}
         self.done = False
         self.reason = None
-        self.stock = {}
+        self.stock = [] if tuning.get("freshness") is not None else {}
         self.phase = "gather"
         self.phase_tick = 0
         self._start_gather()
@@ -84,7 +84,11 @@ class ContractDaySim:
                 entry = next(item for item in tuning["shop"]["upgrades"][name] if item["level"] == level)
                 field = "oxygen_max_s" if name == "oxygen" else "hp_max"
                 tuning["gather"][field] = entry[field]
-        self.active = GatherSim(tuning, copy.deepcopy(self.scenario.get("gather", {})), self.rng, self.ids, day=self.day)
+        fixture = copy.deepcopy(self.scenario.get("gather", {}))
+        if self.day > 1 and tuning.get("freshness") is not None:
+            for item in fixture.get("hold", []):
+                item["id"] = self.ids.new("I")
+        self.active = GatherSim(tuning, fixture, self.rng, self.ids, day=self.day)
         self.time_left_ticks = self.active.time_left_ticks
 
     def initial_events(self):
@@ -136,7 +140,7 @@ class ContractDaySim:
                     self.done, self.reason = True, "days_complete"
                 else:
                     self.day += 1
-                    self.stock = {}
+                    self.stock = [] if self.tuning.get("freshness") is not None else {}
                     self._start_gather()
                     result.extend(self.initial_events())
             return result
@@ -151,7 +155,7 @@ class ContractDaySim:
             self._start_quan()
         else:
             self.money, self.earned, self.reputation = self.active.money, self.active.earned, self.active.reputation
-            self.stock = dict(self.active.stock)
+            self.stock = self.active.snapshot()["stock"]
             self._start_shop()
         result.append(("phase_start", {}))
         return result
@@ -161,7 +165,7 @@ class ContractDaySim:
                                                     "ingredients": self.plan["ingredients"]},
                   "upgrades": dict(self.upgrades), "active_upgrades": dict(self.active_upgrades)}
         if self.phase == "shop":
-            result["stock"] = dict(self.stock)
+            result["stock"] = copy.deepcopy(self.stock)
         else:
             result.update(self.active.snapshot())
         return result

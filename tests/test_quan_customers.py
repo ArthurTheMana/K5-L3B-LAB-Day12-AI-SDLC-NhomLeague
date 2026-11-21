@@ -1,13 +1,13 @@
 import os
 import unittest
-from helpers import Workdir, read_jsonl, run_headless, write_json
+from helpers import Workdir, read_jsonl, run_headless, write_json, items_from_counts
 
 
 class TestQuanCustomers(unittest.TestCase):
     def test_customer_arrived_at_tick_120(self):
         """Khách C1 đến đúng tick 120 khi có kho khả dụng."""
         with Workdir() as w:
-            sc = write_json(w.path("sc.json"), {"quan": {"stock": {"ca_loc": 2}}})
+            sc = write_json(w.path("sc.json"), {"quan": {"stock": items_from_counts({"ca_loc": 2})}})
             out = w.path("out.jsonl")
             code, err = run_headless("--mode", "quan", "--seed", "42", "--ticks", "120",
                                      "--scenario", sc, "--out", out)
@@ -22,7 +22,7 @@ class TestQuanCustomers(unittest.TestCase):
     def test_customer_patience_and_c5_arrival_at_3720(self):
         """Ở tick 3720 (120 + 3600), C1 hết kiên nhẫn bỏ về và C5 xuất hiện (P2 v1.1: 4 bàn T1-T4)."""
         with Workdir() as w:
-            sc = write_json(w.path("sc.json"), {"quan": {"stock": {"ca_loc": 5}}})
+            sc = write_json(w.path("sc.json"), {"quan": {"stock": items_from_counts({"ca_loc": 5})}})
             out = w.path("out.jsonl")
             code, err = run_headless("--mode", "quan", "--seed", "42", "--ticks", "3720",
                                      "--scenario", sc, "--out", out)
@@ -48,7 +48,7 @@ class TestQuanCustomers(unittest.TestCase):
     def test_no_dish_when_stock_empty(self):
         """Khi kho rỗng, ở tick 120 bắn event no_dish."""
         with Workdir() as w:
-            sc = write_json(w.path("sc.json"), {"quan": {"stock": {}}})
+            sc = write_json(w.path("sc.json"), {"quan": {"stock": []}})
             out = w.path("out.jsonl")
             code, err = run_headless("--mode", "quan", "--seed", "42", "--ticks", "120",
                                      "--scenario", sc, "--out", out)
@@ -61,7 +61,7 @@ class TestQuanCustomers(unittest.TestCase):
     def test_closing_khong_tru_uy_tin(self):
         """Hết ca khi khách còn chờ: customer_left closing, uy tín giữ nguyên, đứng trước quan_end."""
         with Workdir() as w:
-            sc = write_json(w.path("sc.json"), {"quan": {"stock": {"ca_loc": 1}, "time_left_ticks": 200}})
+            sc = write_json(w.path("sc.json"), {"quan": {"stock": items_from_counts({"ca_loc": 1}), "time_left_ticks": 200}})
             out = w.path("out.jsonl")
             code, err = run_headless("--mode", "quan", "--seed", "42", "--ticks", "300",
                                      "--scenario", sc, "--out", out)
@@ -79,9 +79,9 @@ class TestQuanCustomers(unittest.TestCase):
     def test_giu_cho_vuot_ton_exit_2(self):
         """Khách scenario giữ chỗ vượt tồn kho hoặc khác công thức -> mã 2, không ghi JSONL."""
         bad = [
-            {"stock": {}, "customers": [{"id": "C1", "table_id": "T1", "dish_id": "ca_loc_nuong_trui"}]},
-            {"stock": {"ca_loc": 1}, "customers": [{"id": "C1", "table_id": "T1",
-                                                    "dish_id": "ca_loc_nuong_trui", "reserved": {"ca_loc": 2}}]},
+            {"stock": [], "customers": [{"id": "C1", "table_id": "T1", "dish_id": "ca_loc_nuong_trui"}]},
+            {"stock": items_from_counts({"ca_loc": 1}), "customers": [{"id": "C1", "table_id": "T1",
+                                                    "dish_id": "ca_loc_nuong_trui", "reserved": ["I1", "I2"]}]},
         ]
         for block in bad:
             with self.subTest(block=block), Workdir() as w:

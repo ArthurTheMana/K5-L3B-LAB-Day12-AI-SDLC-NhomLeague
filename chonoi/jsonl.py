@@ -1,4 +1,4 @@
-"""Ghi JSONL tất định: làm tròn 3 chữ số khi XUẤT (tính toán dùng giá trị chính xác)."""
+"""Ghi JSONL tất định; giữ độ chính xác của fresh, làm tròn số khác khi xuất."""
 
 import json
 
@@ -8,7 +8,8 @@ def _clean(v):
         r = round(v, 3)
         return 0.0 if r == 0 else r  # tránh -0.0
     if isinstance(v, dict):
-        return {k: _clean(x) for k, x in v.items()}
+        # Độ tươi cần giữ chính xác qua bàn giao và khi xét ngưỡng 30.
+        return {k: (x if k == "fresh" and isinstance(x, float) else _clean(x)) for k, x in v.items()}
     if isinstance(v, (list, tuple)):
         return [_clean(x) for x in v]
     return v

@@ -5,7 +5,7 @@ import os
 import tempfile
 import unittest
 
-from helpers import events, read_jsonl, run_headless, snapshots, write_json
+from helpers import events, read_jsonl, run_headless, snapshots, write_json, individual_items, items_from_counts
 
 from chonoi.contract import load_contract
 from chonoi.inputs import InputState
@@ -30,7 +30,7 @@ class GatherRulesTest(unittest.TestCase):
             scen = {
                 "gather": {
                     "player": {"pos": [10, 0.5], "oxygen_ticks": 2, "hp": 1},
-                    "hold": ["ca_loc", "bong_sung", "ca_linh"],
+                    "hold": individual_items(["ca_loc", "bong_sung", "ca_linh"]),
                     "nodes": [],
                     "fish": [],
                     "random_fish": False,
@@ -59,13 +59,13 @@ class GatherRulesTest(unittest.TestCase):
             self.assertIn((61, "choke"), ev_names)
             faint_ev = next(r for r in rows if r.get("name") == "faint")
             self.assertEqual(faint_ev["tick"], 61)
-            self.assertEqual(faint_ev["data"]["lost"], ["ca_linh", "bong_sung", "ca_loc"])
+            self.assertEqual([item["id"] for item in faint_ev["data"]["lost"]], ["I3", "I2", "I1"])
             end_row = rows[-1]
             self.assertEqual(end_row["type"], "end")
             self.assertEqual(end_row["reason"], "fainted")
             self.assertEqual(end_row["ticks"], 61)
             with open(inv, encoding="utf-8") as f:
-                self.assertEqual(json.load(f), {"items": {}})
+                self.assertEqual(json.load(f), {"items": []})
 
     def test_surface_right_before_choke_prevents_choke(self):
         scen = {
@@ -98,7 +98,7 @@ class GatherRulesTest(unittest.TestCase):
         self.assertEqual(len(evs), 1)
         self.assertEqual(evs[0]["name"], "gather")
         self.assertEqual(evs[0]["data"], {"node_id": "N2", "kind": "bong_sung", "amount": 1})
-        self.assertEqual(sess.sim.hold, ["bong_sung"])
+        self.assertEqual(sess.sim.hold, individual_items(["bong_sung"]))
 
         regrow_ticks = int(round(self.tuning["gather"]["regrow_s"] * 60))
         for _ in range(regrow_ticks - 1):
@@ -107,7 +107,7 @@ class GatherRulesTest(unittest.TestCase):
         self.assertEqual([e["name"] for e in evs2], ["node_regrown", "gather"])
         self.assertEqual(evs2[1]["data"]["node_id"], "N2")
 
-        sess.sim.hold = ["ca_loc"] * self.tuning["gather"]["hold_capacity"]
+        sess.sim.hold = [sess.sim._create_item("ca_loc") for _ in range(self.tuning["gather"]["hold_capacity"])]
         evs3 = sess.step(_inp(interact=True))
         self.assertEqual(len(evs3), 1)
         self.assertEqual(evs3[0]["name"], "hold_full")
@@ -116,7 +116,7 @@ class GatherRulesTest(unittest.TestCase):
     def test_catch_fish_cooldown_and_hold_full(self):
         scen = {
             "player": {"pos": [15, 5]},
-            "hold": ["ca_loc"] * 10,
+            "hold": individual_items(["ca_loc"] * 10),
             "nodes": [],
             "fish": [
                 {"id": "F1", "kind": "ca_linh", "pos": [15, 5]},
@@ -131,7 +131,7 @@ class GatherRulesTest(unittest.TestCase):
         self.assertEqual(sess.sim.catch_cd_ticks, 0)
         self.assertEqual(len(sess.sim.fish), 2)
 
-        sess.sim.hold = ["ca_loc"] * 9
+        sess.sim.hold = sess.sim.hold[:9]
         evs2 = sess.step(_inp(catch=True))
         self.assertEqual(evs2[0]["name"], "fish_caught")
         self.assertEqual(evs2[0]["data"], {"fish_id": "F1", "kind": "ca_linh", "yield": 3})
@@ -244,6 +244,9 @@ class KitchenScenariosTest(unittest.TestCase):
 
     def _run_scen(self, quan_block, frames, ticks, snapshot_every=1):
         with tempfile.TemporaryDirectory() as d:
+            quan_block = dict(quan_block)
+            quan_block["stock"] = items_from_counts(quan_block["stock"])
+            quan_block["customers"] = [dict(c, reserved=[]) if c.get("reserved") == {} else c for c in quan_block.get("customers", [])]
             scen_path = write_json(os.path.join(d, "scen.json"), {"quan": quan_block})
             inp_path = write_json(os.path.join(d, "inputs.json"), {"frames": frames})
             out_path = os.path.join(d, "out.jsonl")
@@ -272,10 +275,10 @@ class KitchenScenariosTest(unittest.TestCase):
         self.assertEqual(len(evs), 1)
         self.assertEqual(evs[0]["tick"], 1)
         self.assertEqual(evs[0]["data"]["dish_id"], "lau_ca_linh_dien_dien")
-        self.assertEqual(evs[0]["data"]["items"], ["bong_dien_dien", "ca_linh", "ca_linh", "ca_linh"])
-        self.assertEqual(evs[0]["data"]["base_price"], 120)
+        self.assertEqual([item["kind"] for item in evs[0]["data"]["items"]], ["bong_dien_dien", "ca_linh", "ca_linh", "ca_linh"])
+        self.assertEqual(evs[0]["data"]["base_price"], 119)  # hao tươi trước khi chốt giá
         snaps = snapshots(rows)
-        self.assertEqual(snaps[1]["stock"], {"ca_loc": 1})
+        self.assertEqual([(item["id"], item["kind"]) for item in snaps[1]["stock"]], [("I5", "ca_loc")])
         self.assertEqual(snaps[1]["stoves"][0]["state"], "cooking")
         self.assertEqual(snaps[1]["stoves"][0]["cook_ticks_left"], 600)
 
@@ -358,7 +361,7 @@ class KitchenScenariosTest(unittest.TestCase):
         self.assertEqual(events(rows, "cook_started"), [])
         snaps = snapshots(rows)
         self.assertEqual(snaps[-1]["stoves"][0]["state"], "idle")
-        self.assertEqual(snaps[-1]["stock"], {"bong_sung": 2, "ca_loc": 2})
+        self.assertEqual([item["kind"] for item in snaps[-1]["stock"]], ["ca_loc", "ca_loc", "bong_sung", "bong_sung"])
 
     def test_06_khach_bo_di_do_noi(self):
         quan = {

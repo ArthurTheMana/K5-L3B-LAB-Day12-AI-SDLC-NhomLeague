@@ -6,6 +6,7 @@ from chonoi.contract import load_contract
 from chonoi.ids import IdAllocator
 from chonoi.inputs import InputPlayer
 from chonoi.sim.gather import GatherSim
+from helpers import individual_items
 
 
 class HarvestTests(unittest.TestCase):
@@ -26,13 +27,13 @@ class HarvestTests(unittest.TestCase):
             ("node_regrown", {"node_id": "N2"}),
             ("gather", {"node_id": "N2", "kind": "bong_dien_dien", "amount": 1}),
         ])
-        self.assertEqual(sim.hold, ["bong_dien_dien"])
+        self.assertEqual(sim.hold, individual_items(["bong_dien_dien"]))
         self.assertEqual(sim.nodes[1]["regrow_ticks"], int(round(sim.t["regrow_s"] * 60)))
         self.assertEqual(sim.step(inputs.advance(1)), [])  # Giữ E không hái lại.
 
     def test_full_hold_preserves_node(self):
         sim = self.make_sim(nodes=[{"id": "N1", "kind": "bong_sung", "pos": [20, 0]}])
-        sim.hold = ["ca_loc"] * sim.t["hold_capacity"]
+        sim.hold = [sim._create_item("ca_loc") for _ in range(sim.t["hold_capacity"])]
         events = sim.step(InputPlayer([{"tick": 0, "interact": True}]).advance(0))
         self.assertEqual(events, [("hold_full", {"action": "gather", "node_id": "N1",
                                                   "required": sim.t["node_yield"], "free": 0})])

@@ -1,6 +1,7 @@
 """Lát 4A — Bếp & Bưng món (`kitchen`): đếm giờ nấu, chín món, cháy món, bắt đầu nấu và lấy món lên tay."""
 
 import math
+from fractions import Fraction
 
 from ..ids import id_key, sort_by_id
 
@@ -39,7 +40,7 @@ def _available_stock(sim) -> dict:
 
 def _re_reserve_v12(sim, customer, recipe, spoiled_below):
     """Giữ lại cá thể tươi nhất (chưa ươn, hòa theo id) cho `customer` khi dùng kho cá thể v1.2."""
-    taken = {iid for c in sim.customers if c is not customer for iid in c.get("reserved", [])}
+    taken = {iid for c in sim.customers if c is not customer for iid in (c.get("reserved") or [])}
     picked_ids = []
     for kind in sorted(recipe.keys()):
         need = recipe[kind]
@@ -132,11 +133,12 @@ def interact_stove(sim, stove, events):
             used_items = [it for it in sim.stock if it["id"] in res_ids]
             sim.stock = [it for it in sim.stock if it["id"] not in res_ids]
             items_used = sorted(used_items, key=lambda it: (it["kind"], id_key(it["id"])))
-            avg_fresh = sum(it["fresh"] for it in items_used) / len(items_used) if items_used else 100.0
-            base_price = int(math.floor(listed_price * avg_fresh / 100.0))
+            avg_fresh = sum((Fraction(str(it["fresh"])) for it in items_used), Fraction(0)) / len(items_used) if items_used else Fraction(100)
+            base_price = int(math.floor(listed_price * avg_fresh / 100))
             if c.get("reservation_id") is not None:
                 mult = float(getattr(sim, "reservation_price_multiplier", 1.5))
                 base_price = int(math.floor(base_price * mult))
+            items_used = [dict(it, fresh=float(it["fresh"])) for it in items_used]
             c["reserved"] = []
         else:
             items_used = []

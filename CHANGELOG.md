@@ -1,4 +1,11 @@
 # Changelog
+
+### Phase 3 — tích hợp bàn giao kho v1.2
+- Breaking: `items`, `gather.hold` và `quan.stock` dùng mảng `{id, kind, fresh}`; kho đếm v1.1 không được nhận khi chạy v1.2. Chuyển fixture cũ bằng cách tạo một cá thể cho từng đơn vị, cấp ID duy nhất và `fresh: 100` (hoặc độ tươi fixture cần kiểm thử); cập nhật các khẳng định theo schema mới.
+- Bàn giao cùng tick, giữ ID và độ tươi qua file và Ngày; `fresh` trong JSONL không bị làm tròn để tránh đổi nhánh tại ngưỡng. HUD đếm hàng ươn và không tính hàng ươn vào kho khả dụng.
+- Các test tích hợp cũ đã chuyển fixture kho đếm và giỏ chuỗi sang cá thể v1.2, giữ kiểm tra hành vi; giá chốt được cập nhật do hao tươi trước khi nấu. Một số unit test vẫn kiểm tra riêng nhánh tương thích kho đếm nội bộ.
+- Sửa tự giữ hàng khi nhiều khách chưa có `reserved`, xác thực đơn đã phục vụ và tuần tự hóa độ tươi trong sự kiện `cook_started`.
+- Kiểm thử: toàn bộ 177 test regression đạt với Python 3.12.8; smoke headless một ngày đạt. HUD chưa được kiểm tra trực quan.
 ## Unreleased
 
 ### Phase 3 — Bếp & Độ tươi (Contract v1.2, `chonoi/sim/kitchen.py`)

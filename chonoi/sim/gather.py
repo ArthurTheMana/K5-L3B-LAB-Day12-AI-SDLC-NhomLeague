@@ -21,6 +21,7 @@ Các tính năng của phase sau chưa nằm trong khung này.
 """
 
 import math
+from fractions import Fraction
 
 from ..ids import sort_by_id
 from ..inventory import hold_to_items
@@ -53,11 +54,13 @@ class GatherSim:
         self.invuln_ticks = p.get("invuln_ticks", 0)
         self.catch_cd_ticks = p.get("catch_cd_ticks", 0)
         self.freshness = tuning.get("freshness")
+        self._fresh_values = {}
         self.hold = []
         for item in scenario.get("hold", []):
             if self.freshness is not None:
                 copied = dict(item)
                 self.ids.reserve(copied["id"])
+                self._fresh_values[copied["id"]] = Fraction(str(copied["fresh"]))
                 self.hold.append(copied)
             else:
                 self.hold.append(item)
@@ -102,8 +105,10 @@ class GatherSim:
 
     def _create_item(self, kind):
         """Create one ingredient with a unique ID and initial freshness."""
+        ident = self.ids.new("I")
+        self._fresh_values[ident] = Fraction(str(self.freshness["initial"]))
         return {
-            "id": self.ids.new("I"),
+            "id": ident,
             "kind": kind,
             "fresh": self.freshness["initial"],
         }
@@ -114,21 +119,18 @@ class GatherSim:
         if self.freshness is None:
             return
 
-        # 240 units = 1 freshness point.
-        decay_units = round(
-            self.freshness["gather_decay_per_s"] * 240 / TICK
-        )
-        threshold = round(self.freshness["spoiled_below"] * 240)
+        decay = Fraction(str(self.freshness["gather_decay_per_s"])) / int(TICK)
+        threshold = Fraction(str(self.freshness["spoiled_below"]))
 
         spoiled = []
 
         for item in self.hold:
-            old_units = round(item["fresh"] * 240)
-            new_units = max(0, old_units - decay_units)
+            old = self._fresh_values[item["id"]]
+            new = max(Fraction(0), old - decay)
+            self._fresh_values[item["id"]] = new
+            item["fresh"] = float(new)
 
-            item["fresh"] = new_units / 240
-
-            if old_units >= threshold and new_units < threshold:
+            if old >= threshold and new < threshold:
                 spoiled.append(item)
 
         for item in sort_by_id(spoiled):
@@ -163,7 +165,7 @@ class GatherSim:
                     "kind": item["kind"],
                     "fresh": item["fresh"],
                 }
-                for item in self.hold
+                for item in sort_by_id(self.hold)
             ]
 
         return hold_to_items(self.hold)

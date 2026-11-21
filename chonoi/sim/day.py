@@ -66,7 +66,7 @@ class DaySim:
         self.upgrades = dict(scen.get("upgrades", {"oxygen": 0, "hp": 0}))
 
         # Kho nguyên liệu tích lũy
-        self.stock = dict(inventory if inventory is not None else scen.get("stock", {}))
+        self.stock = copy.deepcopy(inventory if inventory is not None else scen.get("stock", [] if tuning.get("freshness") else {}))
 
         # Thời lượng các pha chuyển cảnh (ticks, mặc định 60 = 1s)
         self.intro_ticks_duration = int(scen.get("intro_ticks", 60))
@@ -126,7 +126,7 @@ class DaySim:
         self.active_sim = None
         return [("evening_intro", {
             "day": self.day,
-            "stock": dict(self.stock),
+            "stock": copy.deepcopy(self.stock),
             "menu": self.get_daily_menu(self.day),
         })]
 
@@ -142,7 +142,7 @@ class DaySim:
             quan_tuning["menu"] = {k: v for k, v in quan_tuning["menu"].items() if k in planned_dishes}
 
         quan_scen = dict(self.scenario.get("quan", {}))
-        quan_scen["stock"] = dict(self.stock)
+        quan_scen["stock"] = copy.deepcopy(self.stock)
         quan_scen["reputation"] = self.reputation
 
         self.active_sim = QuanSim(quan_tuning, quan_scen, self.rng, self.ids, inventory=self.stock)
@@ -155,7 +155,7 @@ class DaySim:
             "phase": "quan",
             "day": self.day,
             "menu": planned_dishes,
-            "stock": dict(self.stock),
+            "stock": copy.deepcopy(self.stock),
         })]
 
     def _start_day_result(self) -> List[Tuple[str, Dict[str, Any]]]:
@@ -222,13 +222,16 @@ class DaySim:
                 if self.active_sim.done:
                     # Thu thập nguyên liệu từ giỏ
                     harvest = self.active_sim.inventory_items()
-                    for k, q in harvest.items():
-                        self.stock[k] = self.stock.get(k, 0) + q
+                    if isinstance(harvest, list):
+                        self.stock.extend(copy.deepcopy(harvest))
+                    else:
+                        for k, q in harvest.items():
+                            self.stock[k] = self.stock.get(k, 0) + q
 
                     events.append(("gather_completed", {
                         "day": self.day,
                         "harvest": harvest,
-                        "stock": dict(self.stock),
+                        "stock": copy.deepcopy(self.stock),
                     }))
                     events.extend(self._start_evening_intro())
             return events
@@ -253,7 +256,7 @@ class DaySim:
                     self.money = self.active_sim.money
                     self.earned = self.active_sim.earned
                     self.reputation = self.active_sim.reputation
-                    self.stock = dict(self.active_sim.stock)
+                    self.stock = self.active_sim.snapshot()["stock"]
 
                     events.append(("quan_completed", {
                         "day": self.day,
@@ -325,7 +328,7 @@ class DaySim:
             "reputation": round(float(self.reputation), 3),
             "score": self.score,
             "upgrades": dict(self.upgrades),
-            "stock": dict(self.stock),
+            "stock": copy.deepcopy(self.stock),
             "time_left_ticks": self.time_left_ticks,
             "phase_tick": self.phase_tick,
             "done": self.done,

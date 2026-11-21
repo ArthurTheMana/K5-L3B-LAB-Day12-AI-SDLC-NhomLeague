@@ -12,6 +12,16 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def individual_items(kinds, fresh=100):
+    """Tạo fixture kho v1.2 theo thứ tự vào giỏ, không thay đổi test luật."""
+    return [{"id": f"I{i}", "kind": kind, "fresh": fresh}
+            for i, kind in enumerate(kinds, 1)]
+
+
+def items_from_counts(counts, fresh=100):
+    return individual_items([kind for kind, count in counts.items() for _ in range(count)], fresh)
+
+
 def write_json(path, obj):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f)
