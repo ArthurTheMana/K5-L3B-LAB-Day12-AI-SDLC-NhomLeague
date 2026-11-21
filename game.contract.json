@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "team": "ten-nhom",
   "team_size": 4,
   "build_cmd": "true",
@@ -63,10 +63,7 @@
       "walk_speed": 4.0,
       "ramp_max_ticks": 6,
       "interact_radius": 1.5,
-      "stoves": [
-        {"id": "B1", "pos": [2, 8]},
-        {"id": "B2", "pos": [5, 8]}
-      ],
+      "stoves": [{"id": "B1", "pos": [2, 8]}, {"id": "B2", "pos": [5, 8]}],
       "tables": [
         {"id": "T1", "pos": [9, 2]},
         {"id": "T2", "pos": [13, 2]},
