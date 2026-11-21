@@ -9,6 +9,9 @@ DISH_QUOTES = {
     "ca_loc_nuong_trui": "Má Tư: \"Cá lóc đồng nướng trui rơm thơm lừng, trở đều tay kẻo khét nghen Út!\"",
     "goi_bong_sung": "Má Tư: \"Bông súng giòn rụm trộn nước mắm me chua ngọt là hết sẩy!\"",
     "lau_ca_linh_dien_dien": "Má Tư: \"Mùa nước nổi có nồi lẩu cá linh bông điên điển là khách thương nhớ hoài!\"",
+    "canh_chua_ca_loc": "Má Tư: \"Canh chua cá lóc bông điên điển thanh mát, nêm vừa miệng nghen con!\"",
+    "ca_keo_nuong": "Má Tư: \"Cá kèo nướng muối ớt xèo xèo trên than hồng là bắt cơm lắm à!\"",
+    "lau_mam": "Má Tư: \"Nồi lẩu mắm miền Tây đủ vị cá linh, cá kèo, kèo nèo mới đúng bài!\"",
 }
 
 
@@ -24,8 +27,16 @@ def kitchen_story_note(stoves, hand) -> str:
     return "Má Tư: \"Bếp than hồng sẵn sàng rồi, chờ khách gọi món là lên lửa liền!\""
 
 
+def _available_stock(sim) -> dict:
+    avail = dict(sim.stock)
+    for c in sim.customers:
+        for k, q in c.get("reserved", {}).items():
+            avail[k] = avail.get(k, 0) - q
+    return avail
+
+
 def step_stoves(sim, events):
-    """Cập nhật bộ đếm bếp đầu bước và chuyển các bếp nấu xong sang `ready`."""
+    """Cập nhật bộ đếm bếp đầu bước, chuyển chín (`dish_ready`) và xử lý cháy món nếu bật `burn_s`."""
     for s in sort_by_id(sim.stoves):
         if s["state"] == "cooking":
             s["cook_ticks_left"] = max(0, s["cook_ticks_left"] - 1)
@@ -41,6 +52,35 @@ def step_stoves(sim, events):
                 "order_id": s["dish"]["order_id"],
                 "dish_id": s["dish"]["dish_id"],
             }))
+
+    burn_s = sim.t.get("burn_s")
+    if burn_s is not None:
+        burn_ticks = int(round(burn_s * TICK))
+        for s in sort_by_id(sim.stoves):
+            if s["state"] == "ready" and s["ready_ticks"] > burn_ticks:
+                dish = s["dish"]
+                s["state"] = "idle"
+                s["dish"] = None
+                s["cook_ticks_left"] = 0
+                s["ready_ticks"] = 0
+                c = next((x for x in sim.customers if x["id"] == dish["order_id"]), None)
+                new_status = "unfulfillable"
+                if c is not None:
+                    recipe = sim.menu[dish["dish_id"]]["recipe"]
+                    avail = _available_stock(sim)
+                    if all(avail.get(k, 0) >= q for k, q in recipe.items()):
+                        c["order_status"] = "reserved"
+                        c["reserved"] = dict(recipe)
+                    else:
+                        c["order_status"] = "unfulfillable"
+                        c["reserved"] = {}
+                    new_status = c["order_status"]
+                events.append(("dish_burnt", {
+                    "stove_id": s["id"],
+                    "order_id": dish["order_id"],
+                    "dish_id": dish["dish_id"],
+                    "order_status": new_status,
+                }))
 
 
 def interact_stove(sim, stove, events):

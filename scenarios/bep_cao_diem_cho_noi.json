@@ -1,6 +1,6 @@
 {
   "quan": {
-    "player": {"pos": [2.5, 7.5], "vel": [0, 0]},
+    "player": {"pos": [2.0, 7.5], "vel": [0, 0]},
     "stock": {
       "ca_loc": 2,
       "bong_sung": 4,
@@ -11,13 +11,9 @@
     "stoves": [
       {
         "id": "B1",
-        "state": "cooking",
-        "dish": {
-          "order_id": "C1",
-          "dish_id": "ca_loc_nuong_trui",
-          "base_price": 60
-        },
-        "cook_ticks_left": 120,
+        "state": "idle",
+        "dish": null,
+        "cook_ticks_left": 0,
         "ready_ticks": 0
       }
     ],
@@ -28,9 +24,8 @@
         "dish_id": "ca_loc_nuong_trui",
         "order_tick": 0,
         "state": "waiting",
-        "patience_ticks_left": 3000,
-        "order_status": "assigned",
-        "reserved": {}
+        "patience_ticks_left": 3600,
+        "order_status": "reserved"
       }
     ],
     "random_customers": true,
