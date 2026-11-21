@@ -18,3 +18,6 @@ Phien ban chinh thuc v1.0.0 - Quan An Cho Noi (nhomLeague).
 ## Bang chung xac minh
 - Kiem chung day du tai docs/verification/phase-4.md.
 - Ket qua do luong luu tai docs/proof/phase-4/.
+
+## Video Demo
+- Video demo đầy đủ các tính năng: [Xem trên Google Drive](https://drive.google.com/drive/folders/1i-8iecDNyMrnudIiFV2PQ_aMYfn-U6sD?usp=sharing)

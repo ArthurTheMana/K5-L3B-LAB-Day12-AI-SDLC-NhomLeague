@@ -101,3 +101,13 @@ Các phần dưới đây chỉ có ở giao diện trình duyệt (`chonoi/live
 ## Quy định của lab
 
 Dùng AI thoải mái, nhưng không sao chép repo của nhóm khác và bằng chứng phải thật. Nhân vật và bối cảnh là bản gốc của lab. Asset ngoài chỉ được dùng CC0/CC-BY/MIT hoặc tự tạo, và phải ghi nguồn trong `CREDITS.md`. Không commit API key, token, `.env`.
+
+## Video Demo sản phẩm
+
+- **Link Video Demo (Google Drive):** [Xem Video Demo](https://drive.google.com/drive/folders/1i-8iecDNyMrnudIiFV2PQ_aMYfn-U6sD?usp=sharing)
+- **Nội dung demo trong video:**
+  1. Giao diện Canvas 2D: Bơi lặn sông Chín Khúc, hái rau mặt nước (bông điên điển, bông súng, kèo nèo), bắt cá linh, cá lóc, cá kèo.
+  2. Ba cảnh báo trực quan: Thủy quái (Cá Sấu Năm Chèo đuổi), Oxy < 20%, Khách giận (😠).
+  3. Chế độ Tương phản cao (phím H / nút bấm).
+  4. Phục vụ quán tối 4 bàn ăn T1–T4, 2 bếp B1–B2, tính đúng tiền và tiền boa 20%.
+  5. Cửa hàng Shop: Nâng cấp bình oxy, nâng cấp máu HP và chuyển Ngày.
