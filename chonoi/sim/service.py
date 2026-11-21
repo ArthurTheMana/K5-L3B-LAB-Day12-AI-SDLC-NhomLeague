@@ -65,7 +65,7 @@ def handle_table_interact(sim: Any, table: Dict[str, Any]) -> List[Tuple[str, Di
 
         # Khách phải đang ở trạng thái chờ món
         state = customer.get("state", "waiting_dish")
-        if state != "waiting_dish":
+        if state not in ("waiting", "waiting_dish"):
             return events
 
         # 3. Đối chiếu món khách gọi
@@ -217,7 +217,7 @@ def update_patience(sim: Any) -> List[Tuple[str, Dict[str, Any]]]:
                 continue
 
             # Chỉ trừ kiên nhẫn khi khách còn đang chờ món
-            if c.get("state") != "waiting_dish":
+            if c.get("state") not in ("waiting", "waiting_dish"):
                 continue
 
             try:

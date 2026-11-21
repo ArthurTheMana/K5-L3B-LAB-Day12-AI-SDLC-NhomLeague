@@ -12,7 +12,7 @@ from ..errors import BadInput
 from ..ids import id_key, sort_by_id
 from .kitchen import interact_stove, step_stoves
 from .ramp import ramp_velocity
-from .service import interact_table, step_service_and_closing
+from .service import handle_table_interact, update_service
 
 TICK = 60.0
 
@@ -132,27 +132,31 @@ class QuanSim:
 
     def step(self, inp):
         events = []
-        # 1. Tăng đồng hồ, giảm timer ca và khách
+        # 1. Tăng đồng hồ và giảm timer ca
         self.phase_tick += 1
         self.time_left_ticks = max(0, self.time_left_ticks - 1)
         shift_closing = self.time_left_ticks <= 0
 
-        for c in self.customers:
-            if c["state"] == "waiting":
-                c["patience_ticks_left"] = max(0, c["patience_ticks_left"] - 1)
-            elif c["state"] == "eating":
-                c["eat_ticks_left"] = max(0, c["eat_ticks_left"] - 1)
-
-        # 2. Bếp: đếm nấu / ready_ticks và chuyển cooking -> ready
+        # 2. Bếp: đếm nấu / ready_ticks và chuyển cooking -> ready (Người A)
         step_stoves(self, events)
 
-        # 3. Di chuyển rồi xét tối đa một interact
+        # 3. Di chuyển rồi xét tối đa một interact (Người A: bếp | Người B: bàn)
         self._move(inp)
         if inp.pressed("interact"):
             self._handle_interact(events)
 
-        # 4. Phục vụ, thanh toán, rời bàn và đóng ca
-        if step_service_and_closing(self, shift_closing, events):
+        # 4. Tiến trình ăn, kiên nhẫn, thanh toán (Người B) & đóng ca
+        events.extend(update_service(self))
+        if shift_closing:
+            self.done = True
+            self.reason = "time"
+            events.append(("quan_end", {
+                "reason": "time",
+                "money": self.money,
+                "earned": self.earned,
+                "shift_earned": self.shift_earned,
+                "reputation": self.reputation,
+            }))
             return events
 
         # 5. Khách mới theo lịch
@@ -218,7 +222,7 @@ class QuanSim:
         if kind == "stove":
             interact_stove(self, obj, events)
         elif kind == "table":
-            interact_table(self, obj, events)
+            events.extend(handle_table_interact(self, obj))
 
     def _move(self, inp):
         speed = self.t["walk_speed"]
