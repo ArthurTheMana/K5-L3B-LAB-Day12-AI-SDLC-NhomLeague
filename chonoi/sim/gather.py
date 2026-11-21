@@ -34,7 +34,7 @@ class GatherSim:
     mode = "gather"
     phase = "gather"
 
-    def __init__(self, tuning, scenario, streams, ids):
+    def __init__(self, tuning, scenario, streams, ids, day=1):
         t = tuning["gather"]
         self.t = t
         self.rng = streams
@@ -75,10 +75,10 @@ class GatherSim:
         for fish in self.fish:
             ids.reserve(fish["id"])
         self.monster_config = t["monsters"]
-        # Gather độc lập dùng bố trí Ngày 1; day sẽ cần truyền ngày khi được tích hợp.
+        # Gather độc lập mặc định Ngày 1; vòng ngày truyền ngày hiện tại.
         initial_monsters = scenario.get("monsters")
         if initial_monsters is None:
-            initial_monsters = [m for m in self.monster_config["spawns"] if m["from_day"] <= 1]
+            initial_monsters = [m for m in self.monster_config["spawns"] if m["from_day"] <= day]
         self.monsters = [{"id": m["id"], "kind": m["kind"], "pos": list(map(float, m["pos"])),
                           "waypoints": [list(map(float, p)) for p in m["waypoints"]],
                           "target_idx": m.get("target_idx", 1), "state": m.get("state", "patrol"),

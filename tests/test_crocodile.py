@@ -10,6 +10,7 @@ from chonoi.errors import BadInput
 from chonoi.inputs import InputPlayer
 from chonoi.runner import Session
 from chonoi.scenario import load_scenario
+from chonoi.sim.day import DaySim
 
 
 def monster(ident="M1", pos=(60, 24), **kwargs):
@@ -96,6 +97,24 @@ class CrocodileTests(unittest.TestCase):
     def test_independent_gather_has_only_day_one_crocodile(self):
         session = self.make_session()
         self.assertEqual([m["id"] for m in session.sim.snapshot()["monsters"]], ["M1"])
+
+    def test_day_cycle_uses_day_specific_monsters(self):
+        tuning = load_contract()["tuning"]
+        for day, expected in ((1, ["M1"]), (2, ["M1"]), (3, ["M1", "M2"])):
+            with self.subTest(day=day):
+                sim = DaySim(tuning, {"day": day, "intro_ticks": 1})
+                sim.step(InputPlayer([]).advance(0))
+                self.assertEqual(sim.phase, "gather")
+                self.assertEqual([m["id"] for m in sim.active_sim.snapshot()["monsters"]], expected)
+
+    def test_day_scenario_monsters_replace_default_spawns(self):
+        tuning = load_contract()["tuning"]
+        for fixture in ([], [monster("M10")]):
+            with self.subTest(fixture=fixture):
+                sim = DaySim(tuning, {"day": 3, "intro_ticks": 1, "gather": {"monsters": fixture}})
+                sim.step(InputPlayer([]).advance(0))
+                self.assertEqual([m["id"] for m in sim.active_sim.snapshot()["monsters"]],
+                                 [m["id"] for m in fixture])
 
 
 if __name__ == "__main__":
