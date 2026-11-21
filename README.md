@@ -54,3 +54,8 @@ Hết giờ mỗi phase thì gắn tag rồi đi tiếp; chỗ chưa xong ghi tr
 
 - Dùng AI thoải mái; **không sao chép repo của nhóm khác**; bằng chứng phải thật.
 - Nhân vật, bối cảnh là bản gốc của lab; asset ngoài chỉ dùng CC0/CC-BY/MIT hoặc tự tạo, ghi nguồn trong `CREDITS.md`. Không commit API key, token, `.env`.
+
+## Sáng tạo của nhóm
+
+- Bản chơi trình duyệt hiển thị Cá Sấu đổi màu, gợn nước và phát âm báo ngắn khi đuổi người chơi; âm thanh cần người chơi nhấn phím trước. Các hiệu ứng chỉ ở giao diện và không thay đổi mô phỏng headless.
+- Kiểm chứng luật và hồi quy: xem `docs/proof/phase-2/crocodile.md`.

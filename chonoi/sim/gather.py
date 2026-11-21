@@ -34,7 +34,7 @@ class GatherSim:
     mode = "gather"
     phase = "gather"
 
-    def __init__(self, tuning, scenario, streams, ids):
+    def __init__(self, tuning, scenario, streams, ids, day=1):
         t = tuning["gather"]
         self.t = t
         self.rng = streams
@@ -74,6 +74,18 @@ class GatherSim:
                      for f in src_fish]
         for fish in self.fish:
             ids.reserve(fish["id"])
+        self.monster_config = t["monsters"]
+        # Gather độc lập mặc định Ngày 1; vòng ngày truyền ngày hiện tại.
+        initial_monsters = scenario.get("monsters")
+        if initial_monsters is None:
+            initial_monsters = [m for m in self.monster_config["spawns"] if m["from_day"] <= day]
+        self.monsters = [{"id": m["id"], "kind": m["kind"], "pos": list(map(float, m["pos"])),
+                          "waypoints": [list(map(float, p)) for p in m["waypoints"]],
+                          "target_idx": m.get("target_idx", 1), "state": m.get("state", "patrol"),
+                          "state_ticks_left": m.get("state_ticks_left", 0),
+                          "recoil_dir": m.get("recoil_dir")} for m in initial_monsters]
+        for monster in self.monsters:
+            ids.reserve(monster["id"])
         self.money = 0
         self.earned = 0
         self.reputation = tuning["quan"]["reputation_initial"]
@@ -113,6 +125,7 @@ class GatherSim:
             "fish": [{"id": f["id"], "pos": f["pos"], "kind": f["kind"],
                       "heading_deg": f["heading_deg"], "age_ticks": f["age_ticks"]}
                      for f in sort_by_id(self.fish)],
+            "monsters": [dict(m) for m in sort_by_id(self.monsters)],
         }
 
     # --- một bước ---------------------------------------------------------------
@@ -183,6 +196,9 @@ class GatherSim:
         # TODO(nhóm, lát 1): so phân vùng đầu/cuối bước -> dive / surface (data: pos).
         # TODO(nhóm, lát 1): oxy theo d CUỐI bước (mặt nước hồi, dưới nước trừ), oxygen_empty khi từ dương
         #   xuống 0, đếm ngạt, choke (-1 Máu). Máu 0 -> faint + gather_end("fainted") với giỏ rỗng, return.
+        self._update_monsters(events)
+        if self.done:
+            return events
         # 3. interact: bến trước, rồi hái
         if inp.pressed("interact"):
             if self._in_dock():
@@ -235,6 +251,60 @@ class GatherSim:
         return events
 
     # --- tiện ích ---------------------------------------------------------------
+    def _update_monsters(self, events):
+        """Di chuyển theo trạng thái, rồi xét tối đa một va chạm ở cuối bước."""
+        hittable = []
+        for monster in sort_by_id(self.monsters):
+            spec = self.monster_config["species"][monster["kind"]]
+            if monster["state"] == "recoil":
+                direction = monster["recoil_dir"]
+                self._move_monster(monster, direction, spec["recoil_dist"] / TICK, spec)
+                monster["state_ticks_left"] -= 1
+                if monster["state_ticks_left"] == 0:
+                    monster["state"] = "patrol"
+                    monster["recoil_dir"] = None
+                continue
+            distance = math.dist(monster["pos"], self.pos)
+            can_detect = self.pos[1] >= spec["depths"][0]
+            if monster["state"] == "chase":
+                if not can_detect or distance > spec["exit_radius"]:
+                    monster["state"] = "patrol"
+            elif can_detect and distance <= spec["detect_radius"]:
+                monster["state"] = "chase"
+            target = self.pos if monster["state"] == "chase" else monster["waypoints"][monster["target_idx"]]
+            speed = spec["chase_speed"] if monster["state"] == "chase" else spec["patrol_speed"]
+            dx, dd = target[0] - monster["pos"][0], target[1] - monster["pos"][1]
+            length = math.hypot(dx, dd)
+            if length:
+                self._move_monster(monster, [dx / length, dd / length], min(length, speed / TICK), spec)
+            if monster["state"] == "patrol" and length <= speed / TICK:
+                monster["target_idx"] = 1 - monster["target_idx"]
+            if can_detect and math.dist(monster["pos"], self.pos) <= spec["hit_radius"]:
+                hittable.append(monster)
+        if not hittable or self.invuln_ticks > 0:
+            return
+        monster = min(hittable, key=lambda m: math.dist(m["pos"], self.pos))
+        spec = self.monster_config["species"][monster["kind"]]
+        lost = [self.hold.pop() for _ in range(math.floor(len(self.hold) * self.monster_config["loss_ratio"]))]
+        self.hp -= 1
+        self.invuln_ticks = self.monster_config["invuln_ticks"]
+        dx, dd = monster["pos"][0] - self.pos[0], monster["pos"][1] - self.pos[1]
+        length = math.hypot(dx, dd)
+        monster["recoil_dir"] = [dx / length, dd / length] if length else [1.0, 0.0]
+        monster["state"] = "recoil"
+        monster["state_ticks_left"] = spec["recoil_ticks"]
+        events.append(("monster_hit", {"monster_id": monster["id"], "hp": self.hp,
+                                       "lost": lost, "pos": self.pos.copy()}))
+        if self.hp == 0:
+            remaining = list(reversed(self.hold))
+            self.hold.clear()
+            events.append(("faint", {"cause": "monster", "lost": remaining, "hp": 0}))
+            self._finish("fainted", events)
+
+    def _move_monster(self, monster, direction, distance, spec):
+        for axis, (lo, hi) in enumerate((self.t["bounds"]["x"], spec["depths"])):
+            monster["pos"][axis] = min(hi, max(lo, monster["pos"][axis] + direction[axis] * distance))
+
     def _spawn_fish(self, events):
         """Sinh tối đa một đàn tại điểm trống, sau khi các đàn đang sống đã bơi."""
         if len(self.fish) >= self.t["fish_max"]:

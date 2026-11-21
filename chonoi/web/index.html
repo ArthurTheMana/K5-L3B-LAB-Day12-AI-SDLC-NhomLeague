@@ -25,12 +25,27 @@ const cv = document.getElementById("c");
 const ctx = cv.getContext("2d");
 const hcBtn = document.getElementById("hc-btn");
 let snap = null, offline = false, highContrast = false;
+let audioContext = null, dangerActive = false;
+
 function toggleHighContrast() {
   highContrast = !highContrast;
   hcBtn.classList.toggle("active", highContrast);
   hcBtn.textContent = highContrast ? "Tương phản cao: BẬT (H)" : "Tương phản cao (H)";
 }
 hcBtn.addEventListener("click", toggleHighContrast);
+
+function dangerSound() {
+  if (!audioContext || audioContext.state !== "running") return;
+  const oscillator = audioContext.createOscillator(), volume = audioContext.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.value = 330;
+  volume.gain.setValueAtTime(0.04, audioContext.currentTime);
+  volume.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
+  oscillator.connect(volume);
+  volume.connect(audioContext.destination);
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.25);
+}
 
 
 // ---------- vào: phím ----------
@@ -70,6 +85,10 @@ async function flush() {
 }
 function keyName(e) { return e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase(); }
 addEventListener("keydown", (e) => {
+  if (!audioContext && (window.AudioContext || window.webkitAudioContext)) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext && audioContext.state === "suspended") audioContext.resume().catch(() => {});
   const k = keyName(e);
   if (e.repeat) { if (k === " " || k.startsWith("arrow")) e.preventDefault(); return; }
   if (MOVE_KEYS[k]) { down.add(MOVE_KEYS[k]); e.preventDefault(); }
@@ -95,6 +114,9 @@ async function poll() {
   try {
     const r = await fetch("/state", { cache: "no-store" });
     snap = await r.json();
+    const danger = (snap.monsters || []).some((m) => m.state === "chase");
+    if (danger && !dangerActive) dangerSound();
+    dangerActive = danger;
     offline = false;
   } catch (e) { offline = true; }
   setTimeout(poll, 16);
@@ -207,6 +229,12 @@ function drawGather(w, h) {
     const dist = snap.player ? Math.hypot(m.pos[0] - snap.player.pos[0], m.pos[1] - snap.player.pos[1]) : 999;
     if (m.state === "chase" || dist <= 10) monsterNear = true;
     ctx.fillStyle = m.state === "chase" ? "#ff1744" : "#9c27b0";
+    if (m.state === "chase") {
+      ctx.strokeStyle = "rgba(220,160,255,.65)";
+      ctx.beginPath();
+      ctx.ellipse(mx, my, (2 + (snap.tick % 60) / 60) * s, s, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.beginPath(); ctx.ellipse(mx, my, 1.3 * s, 0.6 * s, 0, 0, Math.PI * 2); ctx.fill();
     if (highContrast) { ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 2.5; ctx.stroke(); }
     text("🐊 " + m.id, mx, my - 0.85 * s, { size: 11, align: "center", color: "#fff" });

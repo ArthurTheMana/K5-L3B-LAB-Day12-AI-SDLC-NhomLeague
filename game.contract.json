@@ -54,6 +54,22 @@
         "ca_linh": [5, 10],
         "ca_loc": [10, 16],
         "ca_keo": [24, 27]
+      },
+      "monsters": {
+        "species": {
+          "ca_sau": {
+            "patrol_speed": 1.0, "chase_speed": 3.0,
+            "detect_radius": 10.0, "exit_radius": 16.0,
+            "depths": [10, 30], "hit_radius": 1.5,
+            "recoil_ticks": 60, "recoil_dist": 2.0
+          }
+        },
+        "spawns": [
+          {"id": "M1", "kind": "ca_sau", "pos": [60, 24], "waypoints": [[60, 24], [64, 24]], "from_day": 1},
+          {"id": "M2", "kind": "ca_sau", "pos": [85, 18], "waypoints": [[85, 18], [89, 18]], "from_day": 3}
+        ],
+        "invuln_ticks": 90,
+        "loss_ratio": 0.5
       }
     },
     "quan": {

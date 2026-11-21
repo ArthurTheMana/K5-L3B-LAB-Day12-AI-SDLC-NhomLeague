@@ -114,7 +114,7 @@ class DaySim:
         self.phase = "gather"
         self.phase_tick = 0
         gather_scen = dict(self.scenario.get("gather", {}))
-        self.active_sim = GatherSim(self.tuning, gather_scen, self.rng, self.ids)
+        self.active_sim = GatherSim(self.tuning, gather_scen, self.rng, self.ids, day=self.day)
         self.time_left_ticks = self.active_sim.time_left_ticks
         return [("phase_started", {"phase": "gather", "day": self.day})]
 
