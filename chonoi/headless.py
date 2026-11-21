@@ -44,8 +44,9 @@ def main(argv=None) -> int:
     p.add_argument("--snapshot-every", dest="snapshot_every", type=_int("snapshot-every"), default=10)
     a = p.parse_args(argv)
     try:
-        if a.mode == "day":
-            raise BadInput("--mode day chưa hỗ trợ ở contract v1.0 (có từ v1.1)")
+        contract = load_contract()
+        if a.mode == "day" and (not a.scenario or a.ticks == 0):
+            raise BadInput("--mode day cần kịch bản và ticks > 0 (có từ v1.1)")
         if a.ticks < 0:
             raise BadInput("--ticks phải >= 0")
         if a.snapshot_every <= 0:
