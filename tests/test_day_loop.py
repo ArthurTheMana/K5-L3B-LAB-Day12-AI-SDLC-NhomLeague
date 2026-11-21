@@ -187,6 +187,7 @@ class TestDayLoop(unittest.TestCase):
                 "day": {
                     "intro_ticks": 5,
                     "money": 100,
+                    "earned": 100,  # v1.1 yêu cầu khai earned khi có tiền đầu kỳ.
                     "reputation": 3.5,
                 }
             })

@@ -3,7 +3,7 @@
   "team": "nhomLeague",
   "team_size": 4,
   "build_cmd": "true",
-  "run_cmd": "python -m chonoi.live --mode gather",
+  "run_cmd": "python -m chonoi.live --mode day",
   "headless_cmd": "python -m chonoi.headless",
   "tuning": {
     "tick_hz": 60,
@@ -135,6 +135,19 @@
         "ingredients": {"ca_linh": 5, "ca_keo": 1, "keo_neo": 1, "bong_dien_dien": 2, "ca_loc": 1}
       }
     ],
+    "shop": {
+      "max_ticks": 600,
+      "upgrades": {
+        "oxygen": [
+          {"level": 1, "price": 200, "oxygen_max_s": 45},
+          {"level": 2, "price": 400, "oxygen_max_s": 60}
+        ],
+        "hp": [
+          {"level": 1, "price": 250, "hp_max": 4},
+          {"level": 2, "price": 500, "hp_max": 5}
+        ]
+      }
+    },
     "score": {"reputation_multiplier": 100}
   }
 }

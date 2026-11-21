@@ -14,7 +14,7 @@ from .inventory import KINDS_P1, validate_items
 GATHER_KEYS = {"player", "hold", "nodes", "fish", "monsters", "random_fish", "time_left_ticks"}
 GATHER_PLAYER_KEYS = {"pos", "vel", "heading_deg", "hp", "oxygen_ticks", "zero_oxy_ticks",
                       "invuln_ticks", "catch_cd_ticks"}
-NODE_KINDS = ("bong_dien_dien", "bong_sung")
+NODE_KINDS = ("bong_dien_dien", "bong_sung", "keo_neo")
 FISH_KINDS = ("ca_linh", "ca_loc", "ca_keo")
 QUAN_PLAYER_KEYS = {"pos", "vel"}
 QUAN_KEYS = {"player", "stock", "hand", "stoves", "tables", "customers", "random_customers",
@@ -44,8 +44,29 @@ def load_scenario(path, mode: str, tuning: dict) -> dict:
         raise BadInput(f"không đọc được scenario {path}: {e}")
     if not isinstance(data, dict) or not set(data) <= {"gather", "quan", "day"}:
         raise BadInput("scenario chỉ được có khối 'gather', 'quan' hoặc 'day'")
-    if set(data) - {mode}:
+    if mode != "day" and set(data) - {mode}:
         raise BadInput(f"khối sai mode: chạy --mode {mode} chỉ nhận khối '{mode}'")
+    if mode == "day":
+        for key in ("day", "gather", "quan"):
+            if key in data and not isinstance(data[key], dict):
+                raise BadInput(f"scenario.{key} phải là object")
+        settings = data.get("day", {})
+        # Chấp nhận fixture cũ đặt gather/quan trong day để không làm mất dữ liệu test cũ.
+        gather = data.get("gather", settings.get("gather", {}))
+        quan = data.get("quan", settings.get("quan", {}))
+        if not isinstance(gather, dict) or set(gather) - GATHER_KEYS:
+            raise BadInput("scenario.gather không hợp lệ")
+        if not isinstance(quan, dict) or set(quan) - QUAN_KEYS or "stock" in quan or "reputation" in quan:
+            raise BadInput("scenario.quan không hợp lệ cho day")
+        for key, fixture in (("gather", gather), ("quan", quan)):
+            if "time_left_ticks" in fixture:
+                ticks = fixture["time_left_ticks"]
+                limit = int(round(tuning[key]["duration_s"] * 60))
+                if isinstance(ticks, bool) or not isinstance(ticks, int) or not 1 <= ticks <= limit:
+                    raise BadInput(f"scenario.{key}.time_left_ticks không hợp lệ")
+        _validate_gather(gather, tuning)
+        _validate_quan(quan, tuning)
+        return {"day": settings, "gather": gather, "quan": quan}
     block = data.get(mode, {})
     if not isinstance(block, dict):
         raise BadInput(f"khối {mode} phải là object")
