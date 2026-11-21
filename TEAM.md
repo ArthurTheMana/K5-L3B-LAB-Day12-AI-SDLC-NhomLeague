@@ -7,7 +7,7 @@
 | Arthur (ArthurHighRisk) Nguyễn Tài Minh Huy | ArthurTheMana | sim/gather | Integrator | sim/quan |
 | Phạm Đình Nam | dinhnam269 | client/ui | QA lead | sim/gather |
 | Đỗ Anh Thư | DoAnhThu832004 | sim/quan | PO | sim/gather |
-| Lê Huỳnh Trường Giang | vtgiang213 | sim/gather | Scrum/Release | client/ui |
+| Vương Trường Giang | vtgiang213 | sim/gather | Scrum/Release | client/ui |
 | Hoàng Quang Đạt | QDat18 | sim/quan | QA | sim/quan |
 
 **Vai quy trình:** PO (đầu mối hỏi giảng viên, giữ `docs/clarify.md`) · Integrator (giữ `docs/contracts/`, gắn tag) · QA lead · Scrum/Release. Có thể kiêm.
