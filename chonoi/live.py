@@ -47,9 +47,22 @@ class LiveGame:
         self._thread = None
         self._reset()
 
+
     def _reset(self):
         self.session = Session(*self._args)
-        self.inputs = LiveInputs()
+        # STAMINA LIVE ONLY: never set on headless simulations.
+        if self.mode == "gather":
+            sim = self.session.sim
+            sim._live_stamina_enabled = True
+            sim._live_stamina = 100.0
+            sim._live_stamina_exhausted = False
+            sim._live_sprinting = False
+
+        # Live Game: 30 seconds until fainted
+        if self.mode == "gather":
+            self.session.sim.live_choke_interval_ticks = 600
+
+        self.inputs = LiveInputs(buttons=("interact", "catch", "sprint") if self.mode == "gather" else ("interact", "catch"))
         self.events = []
         self._saved = False
         self.error = None
@@ -101,6 +114,19 @@ class LiveGame:
     def state_json(self) -> bytes:
         with self._lock:
             snap = self.session.snapshot()
+            # STAMINA LIVE ONLY: publish meter without changing headless snapshot contract.
+            if self.mode == "gather":
+                sim = self.session.sim
+                snap["live_stamina"] = {
+                    "value": round(sim._live_stamina, 2),
+                    "max": 100.0,
+                    "sprinting": sim._live_sprinting,
+                    "exhausted": sim._live_stamina_exhausted,
+                }
+            if self.mode == "gather":
+                snap["live_choke_interval_ticks"] = (
+                    self.session.sim.live_choke_interval_ticks
+                )
             snap["meta"] = self.tuning[self.mode]
             snap["events"] = list(self.events)
             snap["finished"] = self.session.done
@@ -116,7 +142,7 @@ class LiveGame:
             if not ok:
                 raise ValueError("move phải là [a, b] trong [-1, 1]")
         buttons = {}
-        for b in ("interact", "catch"):
+        for b in (("interact", "catch", "sprint") if self.mode == "gather" else ("interact", "catch")):
             if b in body:
                 if not isinstance(body[b], bool):
                     raise ValueError(f"{b} phải là boolean")

@@ -22,6 +22,7 @@ const cv = document.getElementById("c");
 const ctx = cv.getContext("2d");
 let snap = null, offline = false;
 
+
 // ---------- vào: phím ----------
 const down = new Set();
 const MOVE_KEYS = { w: "u", arrowup: "u", s: "d", arrowdown: "d", a: "l", arrowleft: "l", d: "r", arrowright: "r" };
@@ -32,7 +33,13 @@ function currentInput() {
   const dx = (down.has("r") ? 1 : 0) - (down.has("l") ? 1 : 0);
   let dy = (down.has("d") ? 1 : 0) - (down.has("u") ? 1 : 0);   // gather: xuống = d dương
   if (mode === "quan") dy = -dy;                                // quan: lên (bắc) = z dương
-  return { move: [dx, dy], interact: down.has("interact"), catch: down.has("catch") };
+  // STAMINA LIVE ONLY: button omitted entirely for Quan mode.
+  return {
+    move: [dx, dy],
+    interact: down.has("interact"),
+    catch: down.has("catch"),
+    ...(mode === "gather" ? { sprint: down.has("sprint") } : {})
+  };
 }
 function pushInput() {
   const s = JSON.stringify(currentInput());
@@ -58,6 +65,7 @@ addEventListener("keydown", (e) => {
   if (MOVE_KEYS[k]) { down.add(MOVE_KEYS[k]); e.preventDefault(); }
   else if (k === "e") down.add("interact");
   else if (k === " ") { down.add("catch"); e.preventDefault(); }
+  else if (k === "shift") { down.add("sprint"); e.preventDefault(); }
   else if (k === "r") { fetch("/restart", { method: "POST" }); lastSent = ""; down.clear(); }
   pushInput();
 });
@@ -66,6 +74,7 @@ addEventListener("keyup", (e) => {
   if (MOVE_KEYS[k]) down.delete(MOVE_KEYS[k]);
   else if (k === "e") down.delete("interact");
   else if (k === " ") down.delete("catch");
+  else if (k === "shift") down.delete("sprint");
   pushInput();
 });
 addEventListener("blur", () => { down.clear(); pushInput(); });
@@ -186,15 +195,64 @@ function drawGather(w, h) {
   }
   // HUD trên
   text("⏱ " + fmtTime(snap.time_left_ticks), 14, 28, { size: 20 });
-  if (p && p.oxygen_ticks !== undefined && p.oxygen_max_ticks) {
-    const low = p.oxygen_ticks < p.oxygen_max_ticks * 0.25;
-    bar(110, 12, 220, 18, p.oxygen_ticks / p.oxygen_max_ticks, low ? "#ef5350" : "#4fc3f7", "Oxy " + Math.ceil(p.oxygen_ticks / 60) + "s");
+  
+  // Oxygen percentage
+  if (p && p.oxygen_max_ticks) {
+    const oxygenPercent = Math.max(
+      0,
+      Math.min(100, (p.oxygen_ticks / p.oxygen_max_ticks) * 100)
+    );
+
+    bar(
+      110, 12, 220, 18,
+      oxygenPercent / 100,
+      oxygenPercent <= 25 ? "#ef5350" : "#4fc3f7",
+      `Oxygen ${Math.ceil(oxygenPercent)}%`
+    );
   }
-  if (p && p.hp !== undefined && p.hp_max) {
-    let hs = "";
-    for (let i = 0; i < p.hp_max; i++) hs += i < p.hp ? "♥" : "♡";
-    text(hs, 345, 29, { size: 22, color: "#ff6b81" });
+
+  
+  // HP bar: Live mode uses 600 ticks per HP; headless contract stays unchanged.
+  // Display decreases only while oxygen is zero and the player is underwater.
+  if (p && p.hp_max) {
+    const liveInterval = Number(
+      snap.live_choke_interval_ticks ??
+      snap.meta?.choke_interval_ticks ??
+      60
+    );
+    const chokeInterval = Number.isFinite(liveInterval) && liveInterval > 0
+      ? liveInterval : 60;
+    const actualHP = Math.max(0, Number(p.hp));
+    const maxHP = Number(p.hp_max);
+    const zeroOxyTicks = Math.max(0, Number(p.zero_oxy_ticks || 0));
+    const isChoking = p.oxygen_ticks === 0 && !p.at_surface && actualHP > 0;
+
+    // Predict fractional loss within the current HP interval.
+    // At each choke event, HP decreases by 1 and the timer resets to 0,
+    // so the bar stays continuous across 67% and 33%.
+    const visualHP = isChoking
+      ? Math.max(0, actualHP - zeroOxyTicks / chokeInterval)
+      : actualHP;
+    const hpFraction = Math.max(0, Math.min(1, visualHP / maxHP));
+    const hpPercent = Math.ceil(hpFraction * 100);
+
+    bar(
+      345, 12, 280, 18,
+      hpFraction,
+      hpPercent <= 30 ? "#ef5350" : "#ff6b81",
+      `HP: ${hpPercent}%`
+    );
   }
+
+  // STAMINA LIVE ONLY: bottom of top HUD, separate from Oxygen + HP.
+  if (snap.live_stamina) {
+    const st = snap.live_stamina;
+    const fraction = Math.max(0, Math.min(1, st.value / st.max));
+    bar(650, 12, 220, 18, fraction,
+      st.exhausted ? "#f59e0b" : "#4ade80",
+      `Stamina ${Math.ceil(fraction * 100)}%${st.sprinting ? "  ⚡" : ""}`);
+  }
+
   if (p && p.pos) text(`x ${p.pos[0].toFixed(1)}  d ${p.pos[1].toFixed(1)}`, 14, 52, { size: 12, color: "#9fb3c0" });
   if (p && p.catch_cd_ticks > 0) text("hồi chiêu bắt " + (p.catch_cd_ticks / 60).toFixed(1) + "s", 150, 52, { size: 12, color: "#9fb3c0" });
   // giỏ (khoang) dưới
@@ -208,7 +266,7 @@ function drawGather(w, h) {
     const names = {}; snap.hold.forEach((k) => (names[k] = (names[k] || 0) + 1));
     text("Giỏ " + snap.hold.length + "/" + cap + "  " + Object.keys(names).map((k) => (KIND_NAME[k] || k) + "×" + names[k]).join(", "), 14, y0 + sz + 16, { size: 12, color: "#cfd8dc" });
   }
-  text("WASD/mũi tên bơi · E hái / cập bến · Space bắt cá · R chơi lại", w - 10, h - 14, { size: 12, align: "right", color: "#9fb3c0" });
+  text("WASD bơi · Shift Sprint · E hái/cập bến · Space bắt cá · R chơi lại", w - 10, h - 14, { size: 12, align: "right", color: "#9fb3c0" });
 }
 
 // ----- cảnh QUÁN: nhìn từ trên xuống, x sang phải, z lên (bắc) -----
