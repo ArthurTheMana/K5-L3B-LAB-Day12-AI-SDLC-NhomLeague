@@ -1,0 +1,29 @@
+#!/bin/sh
+# Pre-commit hook của nhóm: chặn commit làm đỏ main.
+# Bật một lần cho mỗi clone:  git config core.hooksPath .githooks
+# Bỏ qua khẩn cấp (ghi lý do trong commit):  git commit --no-verify
+set -e
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+# Chọn Python chạy được thật (trên Windows, python3 có thể là lối tắt Microsoft Store).
+PY=""
+for c in python3 python py; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys" >/dev/null 2>&1; then PY=$c; break; fi
+done
+[ -n "$PY" ] || { echo "[pre-commit] Không tìm thấy Python."; exit 1; }
+
+# Chỉ chạy khi commit đụng tới code, test hoặc hợp đồng (commit chỉ sửa docs thì cho qua nhanh).
+CHANGED=$(git diff --cached --name-only)
+echo "$CHANGED" | grep -qE '^(chonoi/|tests/|tools/|game\.contract\.json)' || exit 0
+
+if echo "$CHANGED" | grep -qE '^(game\.contract\.json|docs/contracts/)'; then
+  echo "[pre-commit] game.contract.json đổi -> tools/check_contract.py"
+  "$PY" tools/check_contract.py || { echo "[pre-commit] Contract lệch số chuẩn, xem skill contract-check."; exit 1; }
+fi
+
+echo "[pre-commit] Chạy bộ unittest..."
+SEP=":"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";";; esac
+PYTHONPATH="tests${SEP}." "$PY" -m unittest discover -s tests -q || {
+  echo "[pre-commit] Test đỏ, commit bị chặn. Sửa luật, không sửa test cho xanh (AGENTS.md)."
+  exit 1
+}

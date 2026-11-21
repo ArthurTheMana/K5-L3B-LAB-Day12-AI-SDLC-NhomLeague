@@ -27,4 +27,10 @@
 - Sáng tạo thêm được khuyến khích nhưng phải tắt ở headless (xem README, mục "Tự do sáng tạo").
 
 ## Skills / hooks của nhóm
-- (Ghi tên và khi nào dùng; tối thiểu 2 skill/hook/command nhóm tự viết, đặt ở `.agents/skills/` hoặc tương đương.)
+| Tên | Loại | Khi nào dùng | Lệnh |
+|---|---|---|---|
+| `verify-phase` ([SKILL](.agents/skills/verify-phase/SKILL.md)) | skill + script | Trước khi gắn tag `phase-N`, sau khi tích hợp nhánh | `python3 tools/verify_phase.py --phase N` → `docs/proof/phase-N/verify.md` (kèm commit hash) |
+| `contract-check` ([SKILL](.agents/skills/contract-check/SKILL.md)) | skill + script | Mỗi khi sửa `game.contract.json`, `docs/contracts/`, schema kho | `python3 tools/check_contract.py` (lỗi = lệch số chuẩn; cảnh báo = thiếu `extensions`) |
+| `pre-commit` ([hook](.githooks/pre-commit)) | git hook | Tự chạy mỗi commit đụng `chonoi/`, `tests/`, `tools/`, contract | Bật một lần: `git config core.hooksPath .githooks` |
+
+Agent: đọc SKILL tương ứng trước khi làm loại việc đó; không tự push tag, báo Integrator commit hash.
